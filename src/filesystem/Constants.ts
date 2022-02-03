@@ -1,0 +1,2 @@
+export const CODALFS_MAGIC = "CODAL_FS_1_0";
+export const SIZEOF_DIRECTORYENTRY = 24;

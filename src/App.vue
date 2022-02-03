@@ -1,19 +1,37 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+    {{ test }}
+    <input type="file" @change="handleFileSelect">
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import {Filesystem} from "@/filesystem/Filesystem";
 
 export default {
   name: 'App',
-  components: {
-    HelloWorld
+  components: {},
+  data() {
+    return {
+      filesystem: null
+    }
+  },
+  methods: {
+    handleFileSelect(e) {
+      const file = e.target.files[0]
+      let reader = new FileReader();
+
+      reader.onload = function () {
+        let arrayBuffer = new Uint8Array(reader.result);
+        console.log(arrayBuffer);
+
+        this.filesystem = new Filesystem(reader.result);
+      }
+
+      reader.readAsArrayBuffer(file);
+    }
   }
-}
+};
 </script>
 
 <style>
