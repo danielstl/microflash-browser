@@ -3,11 +3,33 @@ export class MemorySpan {
     data: DataView;
     readIndex: number = 0;
 
-    constructor(data: DataView) {
-        this.data = data;
+    constructor(data: DataView | ArrayBuffer) {
+        console.log("passed data", data);
+
+        if (data instanceof DataView) {
+            this.data = data;
+        } else {
+            this.data = new DataView(data as ArrayBuffer);
+        }
     }
 
-    readString(length: number) : string {
+    readString(length?: number) : string {
+        if (length == undefined) {
+            // We don't know how long the string is, so keep reading until we find a null termination
+
+            for (let i = this.readIndex; i < this.data.byteLength; i++) {
+
+                if (this.data.getUint8(i) === 0) { // null byte
+                    length = i - this.readIndex;
+                    break;
+                }
+            }
+
+            if (length == undefined) {
+                throw new Error("Couldn't find length of string");
+            }
+        }
+
         const slice = new Int8Array(this.data.buffer.slice(this.readIndex, this.readIndex + length));
 
         this.skip(length);

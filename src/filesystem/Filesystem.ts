@@ -1,6 +1,5 @@
 import {FlashReadWriter} from "./FlashReadWriter";
 import * as Constants from "./Constants";
-import * as Buffer from "buffer";
 
 export class Filesystem {
 
@@ -15,37 +14,32 @@ export class Filesystem {
         this.fileSystemSize = this.flash.flashSize / this.flash.blockSize;
         this.fileAllocationTable = new FileAllocationTable(this, this.fileSystemSize, this.flash.blockSize);
 
-        this.load();
+        this.rootDirectory = this.load();
 
         // @ts-ignore
         window.$fs = this;
     }
 
-    load() {
+    load(): Directory {
         const rootOffset = this.fileAllocationTable.getBlockInfo(0); // root block
 
         for (let i = 0; i < rootOffset; i++) {
             const blockStatus = this.fileAllocationTable.getBlockInfo(i);
 
             if (blockStatus != rootOffset) {
-                console.error("LOAD ABORTED, FILE TABLE CORRUPTED"); // todo throw
-                return;
+                throw new Error("File table is corrupted");
             }
         }
 
-        const rootDir = DirectoryEntry.readFromBlock(this, rootOffset);
+        const rootDir = DirectoryEntry.readFromBlock(this, null, rootOffset);
 
         console.log(rootDir);
 
         if (rootDir.fileName != Constants.CODALFS_MAGIC) {
-            console.error("Invalid magic!!!");
+            throw new Error("Root directory has invalid magic file name");
         }
 
-        this.rootDirectory = Directory.readFromDirectoryEntry(this, rootDir);
-    }
-
-    getAllFiles() : Array<File | Directory> {
-
+        return Directory.readFromDirectoryEntry(this, null, rootDir);
     }
 }
 
@@ -67,107 +61,82 @@ export class FileAllocationTable {
         this.table = []; //todo
     }
 
-    getBlockInfo(blockIndex: number) : number {
+    getBlockInfo(blockIndex: number): number {
         return this.filesystem.flash.dataView.getUint16(this.filesystem.flash.flashStart + blockIndex * 2, true); // Read out an integer
     }
 }
 
 export class DirectoryEntry {
 
-    fileName: String; // 16 bytes
+    filesystem: Filesystem;
+    parent: Directory | null;
+
+    fileName: string; // 16 bytes
     firstBlock: number; // 2 bytes
     flags: number; // 2 bytes
     length: number; // 4 bytes
 
-    constructor(fileName: String, firstBlock: number, flags: number, length: number) {
+    constructor(filesystem: Filesystem, parent: Directory | null, fileName: string, firstBlock: number, flags: number, length: number) {
+        this.filesystem = filesystem;
+        this.parent = parent;
+
         this.fileName = fileName;
         this.firstBlock = firstBlock;
         this.flags = flags;
         this.length = length;
     }
 
-    static readFromBlock(filesystem: Filesystem, blockIndex: number, offset: number = 0) : DirectoryEntry {
+    static readFromBlock(filesystem: Filesystem, parent: Directory | null, blockIndex: number, offset: number = 0): DirectoryEntry {
         const block = filesystem.flash.getBlock(blockIndex);
 
         block.skip(offset);
 
-        return new DirectoryEntry(block.readString(16), block.readUint16(), block.readUint16(), block.readUint32());
-    }
-}
-
-export class Directory extends File {
-
-    entries: Array<DirectoryEntry>;
-
-    constructor(data: ArrayBuffer, meta: DirectoryEntry) {
-        super(data, meta);
-        this.entries = entries;
+        return new DirectoryEntry(filesystem, parent, block.readString(16), block.readUint16(), block.readUint16(), block.readUint32());
     }
 
-//constructor(entries: Array<DirectoryEntry>) {
-    //    this.entries = entries;
-    //}
-
-    static readFromDirectoryEntry(filesystem: Filesystem, directory: DirectoryEntry) : Directory {
-
-        const entries = new Array<DirectoryEntry>();
-
-        let blockIndex = directory.firstBlock;
-
-        let offset = 0;
-
-        // eslint-disable-next-line no-constant-condition
-        while (true) {
-            // If reading the next directory would go over the block boundary, skip right ahead to the next block
-            if (offset + Constants.SIZEOF_DIRECTORYENTRY > filesystem.flash.blockSize) {
-                // This will tell us the *next* block for the current file - or an erroneous value such as EOF
-                blockIndex = filesystem.fileAllocationTable.getBlockInfo(blockIndex);
-
-                if (blockIndex === BlockInfoFlag.EndOfFile) {
-                    break;
-                }
-
-                offset = 0;
-            }
-
-            const entry = DirectoryEntry.readFromBlock(filesystem, blockIndex, offset);
-
-            offset += Constants.SIZEOF_DIRECTORYENTRY;
-
-            if (entry.firstBlock == directory.firstBlock) {
-                continue; // We've found ourselves, we can ignore this...
-            }
-
-            // Check validity of this entry...
-            if ((entry.flags & DirectoryEntryFlag.Free) !== DirectoryEntryFlag.Free && (entry.flags & DirectoryEntryFlag.Valid) === DirectoryEntryFlag.Valid) {
-
-                // We're a directory! Recursively scan for now...
-                if ((entry.flags & DirectoryEntryFlag.Directory) === DirectoryEntryFlag.Directory) {
-                    console.log(entry, " directory, first block: " + entry.firstBlock);
-                    this.readFromDirectoryEntry(filesystem, entry);
-                } else {
-                    console.log(entry);
-                }
-
-                entries.push(entry);
-            }
+    get fullyQualifiedFileName() : string {
+        let name = this.fileName;
+        let parent = this.parent;
+        
+        while (parent != null) {
+            name = parent?.meta.fileName + Constants.CODALFS_FILE_SEPARATOR + name;
+            parent = parent.parent;
         }
+        
+        return name;
+    }
 
-        return new Directory(entries);
+    readData(): File {
+        return File.readFromDirectoryEntry(this.filesystem, this.parent, this);
+    }
+
+    hasFlags(flags: number) : boolean {
+        return (this.flags & flags) === flags;
+    }
+
+    isDirectory() : boolean {
+        return this.hasFlags(DirectoryEntryFlag.Directory);
     }
 }
 
 export class File {
 
-    data: ArrayBuffer;
+    parent: Directory | null;
+    data: ArrayBuffer | null;
     meta: DirectoryEntry;
 
-    constructor(data: ArrayBuffer, meta: DirectoryEntry) {
+    constructor(parent: Directory | null, data: ArrayBuffer | null, meta: DirectoryEntry) {
+        this.parent = parent;
         this.data = data;
         this.meta = meta;
     }
 
-    static readFromDirectoryEntry(filesystem: Filesystem, file: DirectoryEntry) {
+    static readFromDirectoryEntry(filesystem: Filesystem, parent: Directory | null, file: DirectoryEntry): File {
+
+        // Directories (which extend File) have different parsing logic, so parse it differently here
+        if ((file.flags & DirectoryEntryFlag.Directory) === DirectoryEntryFlag.Directory) {
+            return Directory.readFromDirectoryEntry(filesystem, parent, file);
+        }
 
         const splitData = new Array<Uint8Array>();
 
@@ -202,7 +171,71 @@ export class File {
             splitIndex += block.byteLength;
         });
 
-        return new File(data, file);
+        return new File(parent, data.buffer, file);
+    }
+}
+
+export class Directory extends File {
+
+    entries: Array<DirectoryEntry>;
+
+    constructor(parent: Directory | null, entries: Array<DirectoryEntry>, meta: DirectoryEntry) {
+        super(parent, null, meta);
+        this.entries = entries;
+
+        this.entries.forEach(e => e.parent = this); //todo better way of doing this?
+    }
+
+    getAllFiles(): Array<File> {
+        return this.entries.map(e => e.readData());
+    }
+
+    static readFromDirectoryEntry(filesystem: Filesystem, parent: Directory | null, directory: DirectoryEntry): Directory {
+
+        const entries = new Array<DirectoryEntry>();
+
+        let blockIndex = directory.firstBlock;
+
+        let offset = 0;
+
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+            // If reading the next directory would go over the block boundary, skip right ahead to the next block
+            if (offset + Constants.SIZEOF_DIRECTORYENTRY > filesystem.flash.blockSize) {
+                // This will tell us the *next* block for the current file - or an erroneous value such as EOF
+                blockIndex = filesystem.fileAllocationTable.getBlockInfo(blockIndex);
+
+                if (blockIndex === BlockInfoFlag.EndOfFile) {
+                    break;
+                }
+
+                offset = 0;
+            }
+
+            const entry = DirectoryEntry.readFromBlock(filesystem, parent, blockIndex, offset);
+
+            offset += Constants.SIZEOF_DIRECTORYENTRY;
+
+            if (entry.firstBlock == directory.firstBlock) {
+                continue; // We've found ourselves, we can ignore this...
+            }
+
+            // Check validity of this entry...
+            if ((entry.flags & DirectoryEntryFlag.Free) !== DirectoryEntryFlag.Free && (entry.flags & DirectoryEntryFlag.Valid) === DirectoryEntryFlag.Valid) {
+
+                // We're a directory!
+                if ((entry.flags & DirectoryEntryFlag.Directory) === DirectoryEntryFlag.Directory) {
+                    console.log(entry, " directory, first block: " + entry.firstBlock);
+                    // this.readFromDirectoryEntry(filesystem, entry); TODO, recurse here?
+                } else {
+                    console.log(entry);
+                }
+
+                entries.push(entry);
+            }
+        }
+
+        return new Directory(parent, entries, directory);
     }
 }
 

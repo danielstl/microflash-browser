@@ -1,19 +1,35 @@
 <template>
   <div id="app">
-    {{ test }}
+    <div id="filesystem">
+      <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
+                @change-directory="(dir) => this.currentDirectory = dir"
+                @open-file="(file) => this.currentFile = file"/>
+      <FilePreview v-if="this.currentFile" :file="this.currentFile"/>
+      <div v-else>Click on a file to preview it.</div>
+    </div>
     <input type="file" @change="handleFileSelect">
   </div>
 </template>
 
 <script>
-import {Filesystem} from "@/filesystem/Filesystem";
+// eslint-disable-next-line no-unused-vars
+import {Filesystem, File as CodalFile, Directory} from "@/filesystem/Filesystem";
+import FileTree from "@/components/FileTree";
+import FilePreview from "@/filesystem/FilePreview";
 
 export default {
   name: 'App',
-  components: {},
+  components: {FilePreview, FileTree},
   data() {
     return {
-      filesystem: null
+      /** @type {Filesystem | null} */
+      filesystem: null,
+      /** @type {Array<CodalFile>} */
+      files: [],
+      /** @type {Directory} */
+      currentDirectory: null,
+      /** @type {CodalFile} */
+      currentFile: null
     }
   },
   methods: {
@@ -21,11 +37,9 @@ export default {
       const file = e.target.files[0]
       let reader = new FileReader();
 
-      reader.onload = function () {
-        let arrayBuffer = new Uint8Array(reader.result);
-        console.log(arrayBuffer);
-
+      reader.onload = () => {
         this.filesystem = new Filesystem(reader.result);
+        this.currentDirectory = this.filesystem.rootDirectory;
       }
 
       reader.readAsArrayBuffer(file);
@@ -36,11 +50,15 @@ export default {
 
 <style>
 #app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-align: center;
-  color: #2c3e50;
-  margin-top: 60px;
+  font-family: Roboto, "Segoe UI", sans-serif;
+}
+
+#filesystem {
+  display: flex;
+  gap: 0.5em;
+}
+
+#filesystem > * {
+  flex: 1;
 }
 </style>
