@@ -1,3 +1,11 @@
+/**
+ * Wrapper around the native ArrayBuffer APIs to allow for easier
+ * arbritary reads and writes to the filesystem.
+ * 
+ * MemorySpan keeps track of how far within it has been read, to
+ * allow for easier chaining of reads (for example, to load in a
+ * directory entry)
+ */
 export class MemorySpan {
 
     data: DataView;
@@ -11,6 +19,12 @@ export class MemorySpan {
         }
     }
 
+    /**
+     * Reads in either a fixed length or null terminated string
+     * 
+     * @param length the length of the string, if absent, will end at a null byte
+     * @returns the string
+     */
     readString(length?: number): string {
         if (length == undefined) {
             // We don't know how long the string is, so keep reading until we find a null termination
@@ -134,6 +148,13 @@ export class MemorySpan {
         this.skip(span.data.buffer.byteLength);
     }
 
+    /**
+     * Creates an empty memory span with a specified length. To
+     * emulate the actual flash storage, 'empty' means set to 0xFFFFFF...
+     * 
+     * @param size the size of memory to create
+     * @returns the empty memory span
+     */
     static empty(size: number): MemorySpan {
         const dataBuffer = new Uint8Array(new Array<number>(size).fill(0xFF)); // Set to empty flash
 

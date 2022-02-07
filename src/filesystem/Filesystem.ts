@@ -2,6 +2,10 @@ import {FlashReadWriter} from "./FlashReadWriter";
 import * as Constants from "./Constants";
 import {MemorySpan} from "@/filesystem/MemorySpan";
 
+/**
+ * The filesystem contains a reference to the raw flash data contained
+ * within the micro:bit.
+ */
 export class Filesystem {
 
     flash: FlashReadWriter;
@@ -44,6 +48,11 @@ export class Filesystem {
     }
 }
 
+/**
+ * The file allocation table is stored at the start of the filesystem, and
+ * contains information about how each subsequent block in the filesystem
+ * is being used.
+ */
 export class FileAllocationTable {
 
     filesystem: Filesystem;
@@ -89,6 +98,10 @@ export class FileAllocationTable {
     }
 }
 
+/**
+ * A directory entry contains metadata about a file or directory, pointing
+ * to where the data for it is held to facilitate reading or writing.
+ */
 export class DirectoryEntry implements FlashWritable {
 
     filesystem: Filesystem;
@@ -116,6 +129,15 @@ export class DirectoryEntry implements FlashWritable {
         flash.writeUint32(this.length);
     }
 
+    /**
+     * Reads a directory entry from a specific block and offset in storage.
+     * 
+     * @param filesystem the filesystem to read from
+     * @param parent the parent of this file
+     * @param blockIndex the block to read from
+     * @param offset the offset within the block to read from
+     * @returns the parsed directory entry
+     */
     static readFromBlock(filesystem: Filesystem, parent: Directory | null, blockIndex: number, offset: number = 0): DirectoryEntry {
         const block = filesystem.flash.getBlock(blockIndex);
 
@@ -126,6 +148,9 @@ export class DirectoryEntry implements FlashWritable {
         return new DirectoryEntry(filesystem, parent, block.readString(16), block.readUint16(), block.readUint16(), block.readUint32());
     }
 
+    /**
+     * Returns the filename obtained by concatenating this filename with all of its parents' filenames
+     */
     get fullyQualifiedFileName(): string {
         let name = this.fileName;
         let parent = this.parent;
@@ -138,6 +163,14 @@ export class DirectoryEntry implements FlashWritable {
         return name;
     }
 
+    /**
+     * Returns directory entries for each successive parent of this entry, followed by
+     * this entry itself
+     * 
+     * /nested/file/here/ -> [/nested/, /file/, /here/]
+     * 
+     * @returns the directory hierarchy for this entry
+     */
     get breadcrumbs(): Array<DirectoryEntry> {
         const breadcrumbs = new Array<DirectoryEntry>();
 
@@ -152,19 +185,39 @@ export class DirectoryEntry implements FlashWritable {
         return breadcrumbs;
     }
 
+    /**
+     * Reads the file referenced by this directory entry
+     * @returns this entry's file
+     */
     readData(): File {
         return File.readFromDirectoryEntry(this.filesystem, this);
     }
 
+    /**
+     * Utility method for checking specific metadata about this entry
+     * 
+     * @param flags the flag(s) to check
+     * @returns true if the flag(s) are present
+     */
     hasFlags(flags: DirectoryEntryFlag): boolean {
         return (this.flags & flags) === flags;
     }
 
+    /**
+     * Utility method for querying for the DirectoryEntryFlag.Directory flag
+     * 
+     * @returns true if this is a directory
+     */
     isDirectory(): boolean {
         return this.hasFlags(DirectoryEntryFlag.Directory);
     }
 }
 
+/**
+ * Represents a file stored within the CodalFS. This is constructed from a DirectoryEntry,
+ * which contains appropriate information about which blocks to read the data from, along
+ * with the file length, name, and parent.
+ */
 export class File {
 
     parent: Directory | null;
@@ -221,6 +274,13 @@ export class File {
     }
 }
 
+/**
+ * Represents a directory within the CodalFS. As, internally, directories are specialised
+ * files, this inherits all functionality from the base File class.
+ * 
+ * The contents within this file, being a list of directory entries, is parsed automatically
+ * into 'entries'
+ */
 export class Directory extends File {
 
     entries: Array<DirectoryEntry>;
@@ -302,6 +362,9 @@ export interface FileDescriptor {
     next: FileDescriptor; //todo
 }
 
+/**
+ * Flags used to represent the state of directory entries
+ */
 export enum DirectoryEntryFlag {
 
     Free = 0x8000,
@@ -311,6 +374,10 @@ export enum DirectoryEntryFlag {
     Deleted = 0x0000
 }
 
+/**
+ * Special states for representing the different types of blocks within
+ * the filesystem for API use
+ */
 export enum BlockType {
 
     File = 1,
@@ -318,6 +385,12 @@ export enum BlockType {
     FileTable = 3
 }
 
+/**
+ * Represents special states for entries within the file allocation table.
+ * Normally, the value for each block's allocation table entry is the next
+ * block number to facilitate reading files. However, each entry may also
+ * be one of these values
+ */
 export enum BlockInfoFlag {
 
     Unused = 0xffff,
@@ -325,6 +398,10 @@ export enum BlockInfoFlag {
     Deleted = 0x0000
 }
 
+/**
+ * Allows classes which implement this to support writing their state to
+ * the filesystem in raw bytes
+ */
 export interface FlashWritable {
 
     writeToFlash(flash: MemorySpan): void;
