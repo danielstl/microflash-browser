@@ -8,7 +8,7 @@
       <div class="file-size">{{ directory.parent.meta.length }}</div>
     </div>
 
-    <div class="file-entry" v-for="(entry, ix) in directory.entries" :key="ix" @dblclick="openFile(entry)" @click="previewFile(entry)">
+    <div class="file-entry" v-for="(entry, ix) in directory.validEntries" :key="ix" @dblclick="openFile(entry)" @click="previewFile(entry)">
       <div class="file-name">{{ entry.fileName }}</div>
       <div class="file-desc">{{ entry.isDirectory() ? "directory" : "file" }}</div>
       <div class="file-size">{{ entry.length }}</div>
@@ -16,6 +16,7 @@
     <div v-if="directory.entries.length === 0">
       This folder is empty
     </div>
+    <button @click="createDirectory">Create new directory</button>
   </div>
 </template>
 
@@ -25,6 +26,7 @@ import {Directory, File} from "@/filesystem/Filesystem.ts";
 export default {
   name: "FileTree",
   props: {
+    /** @type {Directory} */
     directory: Object // Directory
   },
   methods: {
@@ -43,6 +45,15 @@ export default {
       }
 
       this.$emit("open-file", file);
+    },
+    createDirectory() {
+      const name = prompt("Enter a directory name...");
+
+      if (!name) {
+        return;
+      }
+
+      this.directory.createFile(name, true);
     }
   }
 }

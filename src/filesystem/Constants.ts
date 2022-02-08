@@ -1,3 +1,5 @@
 export const CODALFS_MAGIC = "CODAL_FS_1_0";
 export const CODALFS_FILE_SEPARATOR = "/";
+export const CODALFS_MAX_FILE_LENGTH = 16;
+export const CODALFS_DIRECTORY_LENGTH = 0x0f000000;
 export const SIZEOF_DIRECTORYENTRY = 24;

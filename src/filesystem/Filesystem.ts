@@ -1,5 +1,6 @@
 import {FlashReadWriter} from "./FlashReadWriter";
 import * as Constants from "./Constants";
+import {CODALFS_DIRECTORY_LENGTH, CODALFS_FILE_SEPARATOR, CODALFS_MAX_FILE_LENGTH} from "./Constants";
 import {MemorySpan} from "@/filesystem/MemorySpan";
 
 /**
@@ -46,6 +47,43 @@ export class Filesystem {
 
         return Directory.readFromDirectoryEntry(this, rootDir);
     }
+
+    static validateFilename(filename: string, allowNesting: boolean = true): boolean {
+        const length = filename.length;
+
+        // Name must be null terminated
+        if (length == 0 || filename.charCodeAt(length - 1) != 0) {
+            return false;
+        }
+
+        let currentDirectoryLength = 0;
+
+        for (let i = 0; i < length; i++) {
+            currentDirectoryLength++;
+
+            if (filename.charCodeAt(i) < 32 || filename.charCodeAt(i) > 126) {
+                return false;
+            }
+
+            if (filename.charAt(i) == CODALFS_FILE_SEPARATOR) {
+                if (!allowNesting) {
+                    return false;
+                }
+
+                if (currentDirectoryLength == 0) {
+                    return false; // There shouldn't be duplicate separators (//)
+                }
+
+                currentDirectoryLength = 0;
+            }
+
+            if (currentDirectoryLength > CODALFS_MAX_FILE_LENGTH) {
+                return false; // One component of this filename is too long
+            }
+        }
+
+        return true;
+    }
 }
 
 /**
@@ -75,6 +113,10 @@ export class FileAllocationTable {
         return this.filesystem.flash.dataView.getUint16(this.filesystem.flash.flashStart + blockIndex * 2, true); // Read out an integer
     }
 
+    setBlockInfo(blockIndex: number, value: number) {
+        this.filesystem.flash.dataView.setUint16(this.filesystem.flash.flashStart + blockIndex * 2, value, true);
+    }
+
     recycle() { // Mark all DELETED blocks as UNUSED
         let pageRecycled = false;
 
@@ -96,6 +138,34 @@ export class FileAllocationTable {
             this.filesystem.flash.recyclePage(block);
         }
     }
+
+    /**
+     * When extending a file requires a new block, this new block must be linked
+     * to the old block. This method will recursively read through the blocks to
+     * do this.
+     *
+     * Before:
+     * [ firstBlock ] -> [ BLOCK 2 ] -> [ BLOCK 3 ] -> [ END OF FILE ]
+     *
+     * After:
+     * [ firstBlock ] -> [ BLOCK 2 ] -> [ BLOCK 3 ] -> [ newBlock ] -> [ END OF FILE ]
+     *
+     * @param firstBlock the first block in the chain
+     * @param newBlock the new block to link to the last current block in the chain
+     */
+    extendBlockChain(firstBlock: number, newBlock: number) {
+        const pointedBlock = this.getBlockInfo(firstBlock);
+
+        if (pointedBlock == BlockInfoFlag.EndOfFile) {
+            // we're at the current last block, so append the new block info here
+
+            this.setBlockInfo(pointedBlock, newBlock);
+            this.setBlockInfo(newBlock, BlockInfoFlag.EndOfFile);
+            return;
+        }
+
+        this.extendBlockChain(pointedBlock, newBlock);
+    }
 }
 
 /**
@@ -107,14 +177,19 @@ export class DirectoryEntry implements FlashWritable {
     filesystem: Filesystem;
     parent: Directory | null;
 
+    containingBlock: number;
+    containingBlockOffset: number;
+
     fileName: string; // 16 bytes
     firstBlock: number; // 2 bytes
     flags: number; // 2 bytes
     length: number; // 4 bytes
 
-    constructor(filesystem: Filesystem, parent: Directory | null, fileName: string, firstBlock: number, flags: number, length: number) {
+    constructor(filesystem: Filesystem, parent: Directory | null, containingBlock: number, containingBlockOffset: number, fileName: string, firstBlock: number, flags: number, length: number) {
         this.filesystem = filesystem;
         this.parent = parent;
+        this.containingBlock = containingBlock;
+        this.containingBlockOffset = containingBlockOffset;
 
         this.fileName = fileName;
         this.firstBlock = firstBlock;
@@ -131,7 +206,7 @@ export class DirectoryEntry implements FlashWritable {
 
     /**
      * Reads a directory entry from a specific block and offset in storage.
-     * 
+     *
      * @param filesystem the filesystem to read from
      * @param parent the parent of this file
      * @param blockIndex the block to read from
@@ -145,7 +220,7 @@ export class DirectoryEntry implements FlashWritable {
 
         block.skip(offset);
 
-        return new DirectoryEntry(filesystem, parent, block.readString(16), block.readUint16(), block.readUint16(), block.readUint32());
+        return new DirectoryEntry(filesystem, parent, blockIndex, offset, block.readString(16), block.readUint16(), block.readUint16(), block.readUint32());
     }
 
     /**
@@ -166,9 +241,9 @@ export class DirectoryEntry implements FlashWritable {
     /**
      * Returns directory entries for each successive parent of this entry, followed by
      * this entry itself
-     * 
+     *
      * /nested/file/here/ -> [/nested/, /file/, /here/]
-     * 
+     *
      * @returns the directory hierarchy for this entry
      */
     get breadcrumbs(): Array<DirectoryEntry> {
@@ -195,7 +270,7 @@ export class DirectoryEntry implements FlashWritable {
 
     /**
      * Utility method for checking specific metadata about this entry
-     * 
+     *
      * @param flags the flag(s) to check
      * @returns true if the flag(s) are present
      */
@@ -205,7 +280,7 @@ export class DirectoryEntry implements FlashWritable {
 
     /**
      * Utility method for querying for the DirectoryEntryFlag.Directory flag
-     * 
+     *
      * @returns true if this is a directory
      */
     isDirectory(): boolean {
@@ -223,10 +298,12 @@ export class File {
     parent: Directory | null;
     data: ArrayBuffer | null;
     meta: DirectoryEntry;
+    blockInfo: Array<number>; // a list of all blocks which contain data for this file
 
-    constructor(parent: Directory | null, data: ArrayBuffer | null, meta: DirectoryEntry) {
+    constructor(parent: Directory | null, data: ArrayBuffer | null, blockInfo: Array<number>, meta: DirectoryEntry) {
         this.parent = parent;
         this.data = data;
+        this.blockInfo = blockInfo;
         this.meta = meta;
     }
 
@@ -238,12 +315,14 @@ export class File {
         }
 
         const splitData = new Array<Uint8Array>();
+        const blockIndexes = new Array<number>();
 
         let blockIndex = file.firstBlock;
         let remainingBytes = file.length;
 
         while (remainingBytes > 0) {
             const block = filesystem.flash.getBlock(blockIndex);
+            blockIndexes.push(blockIndex);
 
             const toRead = Math.min(filesystem.flash.blockSize, remainingBytes); // only read as much as we need
             splitData.push(new Uint8Array(block.readArrayBufferSlice(toRead)));
@@ -270,14 +349,14 @@ export class File {
             splitIndex += block.byteLength;
         });
 
-        return new File(file.parent, data.buffer, file);
+        return new File(file.parent, data.buffer, blockIndexes, file);
     }
 }
 
 /**
  * Represents a directory within the CodalFS. As, internally, directories are specialised
  * files, this inherits all functionality from the base File class.
- * 
+ *
  * The contents within this file, being a list of directory entries, is parsed automatically
  * into 'entries'
  */
@@ -285,15 +364,152 @@ export class Directory extends File {
 
     entries: Array<DirectoryEntry>;
 
-    constructor(parent: Directory | null, entries: Array<DirectoryEntry>, meta: DirectoryEntry) {
-        super(parent, null, meta);
+    constructor(parent: Directory | null, entries: Array<DirectoryEntry>, blockInfo: Array<number>, meta: DirectoryEntry) {
+        super(parent, null, blockInfo, meta);
         this.entries = entries;
 
         this.entries.forEach(e => e.parent = this); //todo better way of doing this?
     }
 
-    getAllFiles(): Array<File> {
-        return this.entries.map(e => e.readData());
+    get validEntries() {
+        return this.entries.filter(e => e.hasFlags(DirectoryEntryFlag.Valid));
+    }
+
+    getAllFiles(validOnly: boolean = false): Array<File> {
+        return this.entries.filter(e => !validOnly || e.hasFlags(DirectoryEntryFlag.Valid)).map(e => e.readData());
+    }
+
+    getRelativeEntry(filename: string): DirectoryEntry | null {
+        return this.entries.find(entry => entry.hasFlags(DirectoryEntryFlag.Valid) && entry.fileName.toLowerCase() === filename.toLowerCase()) ?? null;
+    }
+
+    getAbsoluteFile(filename: string): File | null {
+        const components = filename.split(CODALFS_FILE_SEPARATOR);
+        let currentFile: File = this;
+
+        for (const elem of components) {
+            const entry = (currentFile as Directory).getRelativeEntry(elem);
+
+            if (!entry || entry.isDirectory()) {
+                return null; // one of the components doesn't exist or is not a directory...
+            }
+
+            currentFile = entry.readData();
+        }
+
+        return currentFile;
+    }
+
+    createDirectory(filename: string): Directory | FileCreateError {
+        const res = this.createFile(filename, true);
+
+        return FileCreateError.NO_RESOURCES; //todo
+    }
+
+    createFile(filename: string, directory: boolean): File | FileCreateError {
+
+        if (!Filesystem.validateFilename(filename, false)) {
+            return FileCreateError.INVALID_FILENAME;
+        }
+
+        if (this.getRelativeEntry(filename)) {
+            return FileCreateError.FILE_ALREADY_EXISTS;
+        }
+
+        const res = this.createDirectoryEntry();
+
+        if (res as FileCreateError) {
+            return res as FileCreateError;
+        }
+
+        const entry = res as DirectoryEntry;
+
+        const newBlock = this.meta.filesystem.flash.getFreeBlockIndex();
+
+        if (newBlock == 0) {
+            return FileCreateError.NO_RESOURCES;
+        }
+
+        entry.firstBlock = newBlock;
+        entry.fileName = filename;
+
+        if (directory) {
+            entry.flags = DirectoryEntryFlag.Valid | DirectoryEntryFlag.Directory;
+            entry.length = CODALFS_DIRECTORY_LENGTH;
+        } else {
+            entry.flags = DirectoryEntryFlag.New;
+            entry.length = 0xFFFFFFFF;
+        }
+
+        // write to the flash!
+        const flash = this.meta.filesystem.flash.getBlock(entry.containingBlock);
+        flash.skip(entry.containingBlockOffset);
+
+        entry.writeToFlash(flash);
+        this.meta.filesystem.fileAllocationTable.setBlockInfo(newBlock, BlockInfoFlag.EndOfFile);
+
+        return entry.readData();
+    }
+
+    private writeNewFile(filename: string): File | FileCreateError {
+        if (!Filesystem.validateFilename(filename, false)) {
+            return FileCreateError.INVALID_FILENAME;
+        }
+
+        if (this.getRelativeEntry(filename)) {
+            return FileCreateError.FILE_ALREADY_EXISTS;
+        }
+
+        return FileCreateError.FILE_ALREADY_EXISTS;
+    }
+
+    private createDirectoryEntry(): DirectoryEntry | FileCreateError {
+        // we want to find an available slot. Either empty, or invalid. We keep track of which slot we've found
+        // along with the type of slot it is here - as the logic for each type is slightly different
+
+        let entryToModify: DirectoryEntry | null = null;
+        let entryIsInvalid = false;
+
+        for (const entry of this.entries) { // read through all existing entries first to try to find an appropriate slot
+
+            // ideally we just want to modify an existing empty entry
+            if (entry.hasFlags(DirectoryEntryFlag.Free)) {
+                entryToModify = entry;
+                break; // we don't need to keep looking
+            }
+
+            // we can also look for invalid entries, which we'll use if we can't find an empty one
+            if (!entry.hasFlags(DirectoryEntryFlag.Valid)) {
+                entryToModify = entry;
+                entryIsInvalid = true;
+            }
+        }
+
+        // if we couldn't find one, we need to make a new one by allocating a new block...
+        if (entryToModify == null) {
+
+            const newBlock = this.meta.filesystem.flash.getFreeBlockIndex();
+
+            if (newBlock == 0) { // no spare blocks!
+                return FileCreateError.NO_RESOURCES;
+            }
+
+            this.meta.filesystem.fileAllocationTable.extendBlockChain(this.meta.firstBlock, newBlock);
+
+            // todo how to handle first block here???
+            return new DirectoryEntry(this.meta.filesystem, this, newBlock, 0, "NEW_FILE", -1, DirectoryEntryFlag.Free, 0);
+        }
+
+        if (entryIsInvalid) {
+            this.meta.filesystem.flash.recyclePage(entryToModify.containingBlock, BlockType.Directory);
+        }
+
+        entryToModify.fileName = "NEW_FILE";
+        entryToModify.firstBlock = -1; // todo
+        entryToModify.flags = DirectoryEntryFlag.Free;
+        entryToModify.length = 0;
+
+        return entryToModify;
     }
 
     static readFromDirectoryEntry(filesystem: Filesystem, directory: DirectoryEntry, singleBlock: boolean = false): Directory {
@@ -301,6 +517,9 @@ export class Directory extends File {
         const entries = new Array<DirectoryEntry>();
 
         let blockIndex = directory.firstBlock;
+        const blockIndexes = new Array<number>();
+
+        blockIndexes.push(blockIndex);
 
         let offset = 0;
 
@@ -322,6 +541,7 @@ export class Directory extends File {
                 }
 
                 offset = 0;
+                blockIndexes.push(blockIndex);
             }
 
             const entry = DirectoryEntry.readFromBlock(filesystem, directory.parent, blockIndex, offset);
@@ -342,12 +562,12 @@ export class Directory extends File {
                 } else {
                     console.log(entry);
                 }
-
-                entries.push(entry);
             }
+
+            entries.push(entry);
         }
 
-        return new Directory(directory.parent, entries, directory);
+        return new Directory(directory.parent, entries, blockIndexes, directory);
     }
 }
 
@@ -405,4 +625,11 @@ export enum BlockInfoFlag {
 export interface FlashWritable {
 
     writeToFlash(flash: MemorySpan): void;
+}
+
+export enum FileCreateError {
+
+    FILE_ALREADY_EXISTS,
+    INVALID_FILENAME,
+    NO_RESOURCES
 }

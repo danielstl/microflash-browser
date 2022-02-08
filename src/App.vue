@@ -8,6 +8,7 @@
       <div v-else>Click on a file to preview it.</div>
     </div>
     <input type="file" @change="handleFileSelect">
+    <button @click="dumpFilesystem">Save!</button>
   </div>
 </template>
 
@@ -15,7 +16,7 @@
 // eslint-disable-next-line no-unused-vars
 import {Filesystem, File as CodalFile, Directory} from "@/filesystem/Filesystem";
 import FileTree from "@/components/FileTree";
-import FilePreview from "@/filesystem/FilePreview";
+import FilePreview from "@/components/FilePreview";
 
 export default {
   name: 'App',
@@ -43,6 +44,12 @@ export default {
       }
 
       reader.readAsArrayBuffer(file);
+    },
+    dumpFilesystem() {
+      const blob = new Blob([this.filesystem.flash.data]);
+      const blobUrl = URL.createObjectURL(blob);
+
+      window.open(blobUrl);
     }
   }
 };
