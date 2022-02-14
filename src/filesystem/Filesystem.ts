@@ -58,7 +58,7 @@ export class Filesystem {
 
         let currentDirectoryLength = 0;
 
-        for (let i = 0; i < length; i++) {
+        for (let i = 0; i < length - 1; i++) { // don't check last byte as we know it is null
             currentDirectoryLength++;
 
             if (filename.charCodeAt(i) < 32 || filename.charCodeAt(i) > 126) {
@@ -286,6 +286,18 @@ export class DirectoryEntry implements FlashWritable {
     isDirectory(): boolean {
         return this.hasFlags(DirectoryEntryFlag.Directory);
     }
+
+    isValid(): boolean {
+        return this.hasFlags(DirectoryEntryFlag.Valid) && !this.hasFlags(DirectoryEntryFlag.New);
+    }
+
+    delete(): FileDeleteResult {
+        if (this.parent == null) {
+            return FileDeleteResult.ROOT_CANNOT_BE_DELETED;
+        }
+
+        return this.parent.deleteFile(this);
+    }
 }
 
 /**
@@ -372,15 +384,15 @@ export class Directory extends File {
     }
 
     get validEntries() {
-        return this.entries.filter(e => e.hasFlags(DirectoryEntryFlag.Valid));
+        return this.entries.filter(e => e.isValid());
     }
 
     getAllFiles(validOnly: boolean = false): Array<File> {
-        return this.entries.filter(e => !validOnly || e.hasFlags(DirectoryEntryFlag.Valid)).map(e => e.readData());
+        return this.entries.filter(e => !validOnly || e.isValid()).map(e => e.readData());
     }
 
     getRelativeEntry(filename: string): DirectoryEntry | null {
-        return this.entries.find(entry => entry.hasFlags(DirectoryEntryFlag.Valid) && entry.fileName.toLowerCase() === filename.toLowerCase()) ?? null;
+        return this.entries.find(entry => entry.isValid() && entry.fileName.toLowerCase() === filename.toLowerCase()) ?? null;
     }
 
     getAbsoluteFile(filename: string): File | null {
@@ -400,12 +412,6 @@ export class Directory extends File {
         return currentFile;
     }
 
-    createDirectory(filename: string): Directory | FileCreateError {
-        const res = this.createFile(filename, true);
-
-        return FileCreateError.NO_RESOURCES; //todo
-    }
-
     createFile(filename: string, directory: boolean): File | FileCreateError {
 
         if (!Filesystem.validateFilename(filename, false)) {
@@ -418,7 +424,7 @@ export class Directory extends File {
 
         const res = this.createDirectoryEntry();
 
-        if (res as FileCreateError) {
+        if (!(res instanceof DirectoryEntry)) {
             return res as FileCreateError;
         }
 
@@ -510,6 +516,31 @@ export class Directory extends File {
         entryToModify.length = 0;
 
         return entryToModify;
+    }
+
+    deleteFile(filename: string | DirectoryEntry): FileDeleteResult {
+        const entry = typeof filename == "string" ? this.getRelativeEntry(filename) : filename;
+
+        if (entry == null) {
+            return FileDeleteResult.INVALID_FILENAME;
+        }
+
+        let block = entry.firstBlock;
+        let nextBlock: number;
+
+        while (block != BlockInfoFlag.EndOfFile) {
+            nextBlock = entry.filesystem.fileAllocationTable.getBlockInfo(block);
+            entry.filesystem.fileAllocationTable.setBlockInfo(block, BlockInfoFlag.Deleted);
+            block = nextBlock;
+        }
+
+        entry.flags = DirectoryEntryFlag.Deleted;
+
+        const flash = entry.filesystem.flash.getBlock(entry.containingBlock);
+        flash.skip(entry.containingBlockOffset);
+        entry.writeToFlash(flash);
+
+        return FileDeleteResult.SUCCESS;
     }
 
     static readFromDirectoryEntry(filesystem: Filesystem, directory: DirectoryEntry, singleBlock: boolean = false): Directory {
@@ -632,4 +663,11 @@ export enum FileCreateError {
     FILE_ALREADY_EXISTS,
     INVALID_FILENAME,
     NO_RESOURCES
+}
+
+export enum FileDeleteResult {
+
+    SUCCESS,
+    INVALID_FILENAME,
+    ROOT_CANNOT_BE_DELETED
 }

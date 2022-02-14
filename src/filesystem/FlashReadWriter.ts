@@ -48,9 +48,9 @@ export class FlashReadWriter {
     }
 
     erase(source: number, length: number) {
-        const range = new Uint8Array(this.data, source, length);
+        const range = new Uint8Array(this.data);
 
-        range.fill(BlockInfoFlag.Unused);
+        range.fill(BlockInfoFlag.Unused, source, source + length);
     }
 
     erasePage(page: number) {

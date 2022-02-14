@@ -1,5 +1,6 @@
 <template>
   <div id="app">
+    <header>micro:flash filesystem</header>
     <div id="filesystem">
       <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
                 @change-directory="(dir) => this.currentDirectory = dir"
@@ -49,7 +50,14 @@ export default {
       const blob = new Blob([this.filesystem.flash.data]);
       const blobUrl = URL.createObjectURL(blob);
 
-      window.open(blobUrl);
+      const a = document.createElement('a')
+      a.href = blobUrl;
+      a.download = "MICRO_FS";
+      a.style.display = 'none';
+      document.body.appendChild(a);
+
+      a.click();
+      a.remove();
     }
   }
 };
@@ -67,5 +75,10 @@ export default {
 
 #filesystem > * {
   flex: 1;
+}
+
+header {
+  font-size: xx-large;
+  font-weight: 600;
 }
 </style>
