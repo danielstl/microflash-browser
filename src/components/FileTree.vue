@@ -15,6 +15,7 @@
       <div class="file-size">{{ entry.length }}</div>
       <div class="file-operations">
         <button class="file-operation" @click="deleteFile(entry)">Delete</button>
+        <button class="file-operation" @click="editFile(entry)">Edit</button>
       </div>
     </Tooltip>
 
@@ -68,7 +69,12 @@ export default {
       entry.delete();
 
       alert("AAAAAAA");
-    }
+    },
+    editFile(entry) {
+      const data = prompt("File data???");
+
+      entry.writeData(data);
+    },
   }
 }
 </script>

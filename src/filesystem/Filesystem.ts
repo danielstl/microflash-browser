@@ -268,6 +268,53 @@ export class DirectoryEntry implements FlashWritable {
         return File.readFromDirectoryEntry(this.filesystem, this);
     }
 
+    writeData(toWrite: MemorySpan | string) {
+        if (typeof toWrite == "string") {
+            toWrite = new MemorySpan(new TextEncoder().encode(toWrite + "\0").buffer);
+        }
+
+        const length = toWrite.data.byteLength;
+        let written = 0;
+
+        let block = this.firstBlock;
+        let prevBlock = this.firstBlock;
+
+        alert(block);
+
+        while (written < length) {
+            // extend the chain, otherwise use the existing chain...
+            if (block == BlockInfoFlag.EndOfFile) {
+                block = this.filesystem.flash.getFreeBlockIndex();
+                this.filesystem.fileAllocationTable.setBlockInfo(prevBlock, block);
+            }
+
+            const writeToBlock = toWrite.readArrayBufferSlice(Math.min(this.filesystem.flash.blockSize, length - written));
+
+            this.filesystem.flash.getBlock(block).write(new MemorySpan(writeToBlock));
+
+            written += writeToBlock.byteLength;
+
+            prevBlock = block;
+            block = this.filesystem.fileAllocationTable.getBlockInfo(block);
+        }
+
+        // mark any old blocks as empty
+        // TODO check if this is appropriate?
+        while (block != BlockInfoFlag.EndOfFile) {
+            const newBlock = this.filesystem.fileAllocationTable.getBlockInfo(block);
+
+            if (newBlock == BlockInfoFlag.EndOfFile) {
+                return;
+            }
+
+            this.filesystem.fileAllocationTable.setBlockInfo(newBlock, BlockInfoFlag.EndOfFile);
+        }
+
+        this.length = written;
+
+        this.writeToFlash(this.filesystem.flash.getBlock(this.containingBlock).atOffset(this.containingBlockOffset)); // write back the length
+    }
+
     /**
      * Utility method for checking specific metadata about this entry
      *
@@ -444,7 +491,7 @@ export class Directory extends File {
             entry.length = CODALFS_DIRECTORY_LENGTH;
         } else {
             entry.flags = DirectoryEntryFlag.New;
-            entry.length = 0xFFFFFFFF;
+            entry.length = 0xFFFFFFFF; // we'll set the actual length when the file is written...
         }
 
         // write to the flash!

@@ -142,8 +142,14 @@ export class MemorySpan {
         return currentReadIndex;
     }
 
+    atOffset(offset: number): MemorySpan {
+        this.readIndex = offset;
+
+        return this;
+    }
+
     write(span: MemorySpan) {
-        new Uint8Array(this.data.buffer, 0, this.data.buffer.byteLength).set(new Uint8Array(span.data.buffer), this.readIndex);
+        new Uint8Array(this.data.buffer, this.data.byteOffset, this.data.byteLength).set(new Uint8Array(span.data.buffer), this.readIndex);
 
         this.skip(span.data.buffer.byteLength);
     }

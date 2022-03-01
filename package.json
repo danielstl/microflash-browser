@@ -5,11 +5,14 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "build-min": "tsc --outFile \"./lib/index1.js\" --target \"es2015\" --module \"none\" && node minify.js"
   },
   "dependencies": {
     "@types/node": "^17.0.14",
     "core-js": "^3.6.5",
+    "html-minifier": "^4.0.0",
+    "minify": "^8.0.4",
     "vue": "^3.2.29"
   },
   "devDependencies": {
