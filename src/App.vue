@@ -59,6 +59,13 @@ export default {
       a.click();
       a.remove();
     }
+  },
+  mounted() {
+    window.addEventListener("message", e => {
+      let bytes = e.data;
+
+      alert("Received", bytes);
+    });
   }
 };
 </script>
