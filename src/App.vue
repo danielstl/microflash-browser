@@ -62,9 +62,16 @@ export default {
   },
   mounted() {
     window.addEventListener("message", e => {
-      let bytes = e.data;
+      let message = e.data;
 
-      alert("Received", bytes);
+      if (!message || message.i !== "fs") {
+        return;
+      }
+
+      let buffer = e.data.d;
+
+      this.filesystem = new Filesystem(buffer);
+      this.currentDirectory = this.filesystem.rootDirectory;
     });
   }
 };
