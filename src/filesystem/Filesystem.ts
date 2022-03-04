@@ -443,13 +443,13 @@ export class Directory extends File {
     }
 
     getAbsoluteFile(filename: string): File | null {
-        const components = filename.split(CODALFS_FILE_SEPARATOR);
+        const components = filename.split(CODALFS_FILE_SEPARATOR).filter(elem => elem != "");
         let currentFile: File = this;
 
         for (const elem of components) {
             const entry = (currentFile as Directory).getRelativeEntry(elem);
 
-            if (!entry || entry.isDirectory()) {
+            if (!entry || !entry.isDirectory()) {
                 return null; // one of the components doesn't exist or is not a directory...
             }
 
