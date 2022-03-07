@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <header>micro:flash filesystem</header>
+    <header>Your micro:bit files</header>
     <div id="filesystem">
       <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
                 @change-directory="(dir) => this.currentDirectory = dir"
@@ -52,7 +52,7 @@ export default {
 
       const a = document.createElement('a')
       a.href = blobUrl;
-      a.download = "MICRO_FS";
+      a.download = "MICRO_FS.dat";
       a.style.display = 'none';
       document.body.appendChild(a);
 

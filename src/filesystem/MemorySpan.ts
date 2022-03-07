@@ -1,6 +1,6 @@
 /**
  * Wrapper around the native ArrayBuffer APIs to allow for easier
- * arbritary reads and writes to the filesystem.
+ * arbitrary reads and writes to the filesystem.
  * 
  * MemorySpan keeps track of how far within it has been read, to
  * allow for easier chaining of reads (for example, to load in a
@@ -48,7 +48,7 @@ export class MemorySpan {
 
         const nullChar = str.indexOf("\0"); // trim if we're null terminated early
 
-        if (nullChar) {
+        if (nullChar != -1) {
             str = str.substring(0, nullChar);
         }
 

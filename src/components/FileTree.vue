@@ -16,6 +16,7 @@
       <div class="file-operations">
         <button class="file-operation" @click="deleteFile(entry)">Delete</button>
         <button class="file-operation" @click="editFile(entry)">Edit</button>
+        <button class="file-operation" @click="downloadFile(entry)">Download</button>
       </div>
     </Tooltip>
 
@@ -68,7 +69,12 @@ export default {
     deleteFile(entry) {
       entry.delete();
 
-      alert("AAAAAAA");
+      alert("Deleted...");
+    },
+    downloadFile(entry) {
+      let file = entry instanceof DirectoryEntry ? entry.readData() : entry;
+
+      file.download();
     },
     editFile(entry) {
       const data = prompt("File data???");

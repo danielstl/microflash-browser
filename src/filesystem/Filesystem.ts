@@ -2,6 +2,7 @@ import {FlashReadWriter} from "./FlashReadWriter";
 import * as Constants from "./Constants";
 import {CODALFS_DIRECTORY_LENGTH, CODALFS_FILE_SEPARATOR, CODALFS_MAX_FILE_LENGTH} from "./Constants";
 import {MemorySpan} from "@/filesystem/MemorySpan";
+import JSZip from "jszip";
 
 /**
  * The filesystem contains a reference to the raw flash data contained
@@ -410,6 +411,49 @@ export class File {
 
         return new File(file.parent, data.buffer, blockIndexes, file);
     }
+
+    async download() {
+        let blob: Blob;
+
+        if (this instanceof Directory) { // Create a zip if we're a directory
+            const zip = new JSZip();
+
+            const addDirectoryFiles = (dir: Directory, path: string) => {
+                const files = dir.getAllFiles(true);
+
+                files.forEach(file => {
+                   if (file instanceof Directory) {
+                       addDirectoryFiles(file, path + "/" + file.meta.fileName);
+                   } else {
+                       zip.file(path + "/" + file.meta.fileName, file.data as ArrayBuffer);
+                   }
+                });
+            };
+
+            addDirectoryFiles(this, "");
+
+            blob = await zip.generateAsync({type: "blob"});
+
+        } else if (this.data == null) {
+            console.log("Unable to download file as data is null");
+            return;
+
+        } else {
+            blob = new Blob([new Uint8Array(this.data)], {type: "octet/stream"});
+        }
+
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.style.display = "none";
+        a.href = url;
+        a.download = this.meta.fileName;
+
+        document.body.appendChild(a);
+
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
 }
 
 /**
@@ -447,10 +491,14 @@ export class Directory extends File {
         let currentFile: File = this;
 
         for (const elem of components) {
+            if (!currentFile.meta.isDirectory()) {
+                return null; // we can't read into a non-directory!
+            }
+
             const entry = (currentFile as Directory).getRelativeEntry(elem);
 
-            if (!entry || !entry.isDirectory()) {
-                return null; // one of the components doesn't exist or is not a directory...
+            if (!entry) {
+                return null; // one of the components doesn't exist...
             }
 
             currentFile = entry.readData();
