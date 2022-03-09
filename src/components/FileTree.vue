@@ -1,18 +1,17 @@
 <template>
   <div class="dir-entry">
-    <b>{{ directory.meta.fullyQualifiedFileName }}</b>
+    <FileBreadcrumbs :path="directory.meta.fullyQualifiedFileName" @navigate-to-breadcrumb="navigateToBreadcrumb"/>
 
     <div v-if="directory.parent" class="file-entry file-parent" @dblclick="openFile(directory.parent)">
       <div class="file-name">..</div>
       <div class="file-desc">parent</div>
-      <div class="file-size">{{ directory.parent.meta.length }}</div>
     </div>
 
     <Tooltip class="file-entry" v-for="(entry, ix) in directory.validEntries" :key="ix" :text="entry.fileName + '\n' + entry.flags" @dblclick="openFile(entry)"
              @click="previewFile(entry)">
       <div class="file-name">{{ entry.fileName }}</div>
+      <div class="file-size" v-if="!entry.isDirectory()">{{ formatBytes(entry.length) }}</div>
       <div class="file-desc">{{ entry.isDirectory() ? "directory" : "file" }}</div>
-      <div class="file-size">{{ entry.length }}</div>
       <div class="file-operations">
         <button class="file-operation" @click="deleteFile(entry)">Delete</button>
         <button class="file-operation" @click="editFile(entry)">Edit</button>
@@ -31,10 +30,11 @@
 <script>
 import {Directory, DirectoryEntry, File} from "@/filesystem/Filesystem.ts";
 import Tooltip from "@/components/Tooltip";
+import FileBreadcrumbs from "@/components/FileBreadcrumbs";
 
 export default {
   name: "FileTree",
-  components: {Tooltip},
+  components: {FileBreadcrumbs, Tooltip},
   props: {
     /** @type {Directory} */
     directory: Object // Directory
@@ -44,8 +44,11 @@ export default {
       let file = entry instanceof File ? entry : entry.readData();
 
       if (file instanceof Directory) {
-        this.$emit("change-directory", file);
+        this.changeDirectory(file);
       }
+    },
+    changeDirectory(dir) {
+      this.$emit("change-directory", dir);
     },
     previewFile(entry) {
       let file = entry instanceof DirectoryEntry ? entry.readData() : entry;
@@ -81,6 +84,19 @@ export default {
 
       entry.writeData(data);
     },
+    formatBytes(bytes) {
+      if (bytes < 1024) {
+        return bytes + " B";
+      }
+
+      bytes /= 1024;
+      return `${bytes.toFixed(2)} KB`;
+    },
+    navigateToBreadcrumb(breadcrumbIndex) {
+      let breadcrumbs = this.directory.meta.breadcrumbs;
+
+      this.changeDirectory(breadcrumbs[breadcrumbIndex].readData());
+    }
   }
 }
 </script>
@@ -107,6 +123,7 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 0.2em;
+  flex: 1;
 }
 
 .file-operations {

@@ -21,9 +21,9 @@ export default {
   display: inline-block;
 }
 
-/* Tooltip text */
 .tooltip .tooltip-hover {
   visibility: hidden;
+
   width: 120px;
   background-color: black;
   color: #fff;
@@ -31,12 +31,10 @@ export default {
   padding: 5px 0;
   border-radius: 6px;
 
-  /* Position the tooltip text - see examples below! */
   position: absolute;
   z-index: 1;
 }
 
-/* Show the tooltip text when you mouse over the tooltip container */
 .tooltip:hover .tooltip-hover {
   visibility: visible;
 
@@ -50,11 +48,13 @@ export default {
   0% {
     opacity: 0;
     scale: 0.9;
+    pointer-events: none;
   }
 
   100% {
     opacity: 1;
     scale: 1;
+    pointer-events: auto;
   }
 }
 </style>

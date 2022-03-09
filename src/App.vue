@@ -1,13 +1,17 @@
 <template>
   <div id="app">
     <header>Your micro:bit files</header>
-    <div id="filesystem">
-      <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
-                @change-directory="(dir) => this.currentDirectory = dir"
-                @open-file="(file) => this.currentFile = file"/>
-      <FilePreview v-if="this.currentFile" :file="this.currentFile"/>
-      <div v-else>Click on a file to preview it.</div>
-    </div>
+    <Splitpanes vertical="vertical" id="filesystem" class="default-theme">
+      <Pane>
+        <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
+                  @change-directory="(dir) => this.currentDirectory = dir"
+                  @open-file="(file) => this.currentFile = file"/>
+      </Pane>
+      <Pane>
+        <FilePreview v-if="this.currentFile" :file="this.currentFile"/>
+        <div v-else>Click on a file to preview it.</div>
+      </Pane>
+    </Splitpanes>
     <input type="file" @change="handleFileSelect">
     <button @click="dumpFilesystem">Save!</button>
   </div>
@@ -18,10 +22,11 @@
 import {Filesystem, File as CodalFile, Directory} from "@/filesystem/Filesystem";
 import FileTree from "@/components/FileTree";
 import FilePreview from "@/components/FilePreview";
+import {Splitpanes, Pane} from "splitpanes";
 
 export default {
   name: 'App',
-  components: {FilePreview, FileTree},
+  components: {FilePreview, FileTree, Splitpanes, Pane},
   data() {
     return {
       /** @type {Filesystem | null} */
@@ -78,8 +83,11 @@ export default {
 </script>
 
 <style>
-#app {
-  font-family: Roboto, "Segoe UI", sans-serif;
+html, body, #app {
+  font-family: Helvetica Now, Helvetica, Arial, sans-serif;
+  height: 100%;
+  width: 100%;
+  margin: 0;
 }
 
 #filesystem {
@@ -87,12 +95,23 @@ export default {
   gap: 0.5em;
 }
 
-#filesystem > * {
-  flex: 1;
-}
-
 header {
   font-size: xx-large;
   font-weight: 600;
+  background-image: linear-gradient(122deg, #00c800 -3%, #3eb6fd 49%);
+  padding: 0.25em;
+  color: white;
+}
+
+.splitpanes__pane {
+  display: flex;
+}
+
+.splitpanes__splitter {
+  width: 1px;
+  padding: 6px;
+  background: #999;
+  background-clip: content-box;
+  cursor: col-resize;
 }
 </style>

@@ -1,7 +1,10 @@
 <template>
-<div>
-  {{ contents }}
-</div>
+  <div>
+    <div id="file-title">{{ file.meta.fileName }}</div>
+    <div id="file-contents">
+      {{ contents }}
+    </div>
+  </div>
 </template>
 
 <!--suppress ES6UnusedImports -->

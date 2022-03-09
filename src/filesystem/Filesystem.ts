@@ -422,11 +422,14 @@ export class File {
                 const files = dir.getAllFiles(true);
 
                 files.forEach(file => {
-                   if (file instanceof Directory) {
-                       addDirectoryFiles(file, path + "/" + file.meta.fileName);
-                   } else {
-                       zip.file(path + "/" + file.meta.fileName, file.data as ArrayBuffer);
-                   }
+                    const filePath = path + "/" + file.meta.fileName;
+
+                    if (file instanceof Directory) {
+                        zip.folder(filePath);
+                        addDirectoryFiles(file, filePath);
+                    } else {
+                        zip.file(filePath, file.data as ArrayBuffer);
+                    }
                 });
             };
 
