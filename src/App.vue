@@ -1,19 +1,19 @@
 <template>
   <div id="app">
-    <header>Your micro:bit files</header>
     <Splitpanes vertical="vertical" id="filesystem" class="default-theme">
-      <Pane>
+      <Pane id="navigator-container">
         <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
                   @change-directory="(dir) => this.currentDirectory = dir"
                   @open-file="(file) => this.currentFile = file"/>
       </Pane>
       <Pane>
-        <FilePreview v-if="this.currentFile" :file="this.currentFile"/>
-        <div v-else>Click on a file to preview it.</div>
+        <FilePreview :file="this.currentFile"/>
       </Pane>
     </Splitpanes>
-    <input type="file" @change="handleFileSelect">
-    <button @click="dumpFilesystem">Save!</button>
+    <template v-if="false">
+      <input type="file" @change="handleFileSelect">
+      <button @click="dumpFilesystem">Save!</button>
+    </template>
   </div>
 </template>
 
@@ -92,7 +92,8 @@ html, body, #app {
 
 #filesystem {
   display: flex;
-  gap: 0.5em;
+
+  height: 100%;
 }
 
 header {
@@ -108,10 +109,16 @@ header {
 }
 
 .splitpanes__splitter {
-  width: 1px;
-  padding: 6px;
+  width: 5px;
+  padding: 0;
   background: #999;
   background-clip: content-box;
   cursor: col-resize;
+}
+
+#navigator-container {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 </style>

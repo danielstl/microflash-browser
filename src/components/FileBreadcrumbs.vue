@@ -28,17 +28,19 @@ export default {
 <style scoped>
 .breadcrumb-container:not(:first-child)::before {
   content: "/";
-  margin-left: 0.1em;
-  margin-right: 0.1em;
+  margin-left: 0.4em;
+  margin-right: 0.4em;
   color: #777;
 }
 
 .breadcrumb {
-  margin: 0.2em 0.5em;
   display: inline-block;
   border-radius: 3px;
   padding: 0.15em;
   user-select: none;
+
+  font-size: large;
+  font-weight: 600;
 }
 
 .breadcrumb:hover {

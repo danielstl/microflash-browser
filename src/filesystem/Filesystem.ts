@@ -412,7 +412,7 @@ export class File {
         return new File(file.parent, data.buffer, blockIndexes, file);
     }
 
-    async download() {
+    async convertToBlob(): Promise<Blob> {
         let blob: Blob;
 
         if (this instanceof Directory) { // Create a zip if we're a directory
@@ -439,12 +439,29 @@ export class File {
 
         } else if (this.data == null) {
             console.log("Unable to download file as data is null");
-            return;
+            return new Blob();
 
         } else {
             blob = new Blob([new Uint8Array(this.data)], {type: "octet/stream"});
         }
 
+        return blob;
+    }
+
+    async toDataURI(): Promise<string> {
+        const reader = new FileReader();
+
+        reader.readAsDataURL(await this.convertToBlob());
+
+        return new Promise(resolve => {
+            reader.onloadend = () => {
+                resolve(reader.result as string);
+            };
+        });
+    }
+
+    async download() {
+        const blob = await this.convertToBlob();
         const url = window.URL.createObjectURL(blob);
 
         const a = document.createElement("a");
