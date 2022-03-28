@@ -1,16 +1,12 @@
-import {MemorySpan} from "./MemorySpan";
-import {
-    BlockInfoFlag,
-    BlockType,
-    Directory,
-    DirectoryEntry,
-    DirectoryEntryFlag,
-    Filesystem
-} from "@/filesystem/Filesystem";
+import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
+import {MemorySpan} from "@/filesystem/utils/MemorySpan";
+import {BlockInfoFlag} from "@/filesystem/codalfs/BlockInfoFlag";
+import {BlockType} from "@/filesystem/codalfs/BlockType";
+import {MicroDirectoryEntry} from "@/filesystem/codalfs/MicroDirectoryEntry";
+import {MicroDirectory} from "@/filesystem/codalfs/MicroDirectory";
+import {DirectoryEntryFlag} from "@/filesystem/codalfs/DirectoryEntryFlag";
 
-export class FlashReadWriter {
-
-    filesystem: Filesystem;
+export class FlashManager {
 
     flashStart = 0;
     flashEnd = 0;
@@ -18,12 +14,11 @@ export class FlashReadWriter {
     blockSize = 512;
     flashSize = 131072;
 
-    data: ArrayBuffer;
     dataView: DataView;
 
     lastBlockAllocated = 0;
 
-    constructor(filesystem: Filesystem, data: ArrayBuffer) {
+    constructor(public filesystem: MicroflashFilesystem, public data: ArrayBuffer) {
         this.filesystem = filesystem;
         this.data = data;
         this.dataView = new DataView(this.data);
@@ -150,12 +145,12 @@ export class FlashReadWriter {
             } else if (currentBlockIndex == blockIndex && type == BlockType.Directory) {
                 // If we have been asked to recycle a valid directory block, recycle individual entries where possible.
 
-                const entry = DirectoryEntry.readFromBlock(this.filesystem, null, currentBlockIndex);
-                const dir = Directory.readFromDirectoryEntry(this.filesystem, entry, true);
+                const entry = MicroDirectoryEntry.readFromBlock(this.filesystem, null, currentBlockIndex);
+                const dir = MicroDirectory.readFromDirectoryEntry(this.filesystem, entry, true);
 
                 dir.entries.forEach(entry => {
                     // If the entry is not valid, we don't want to save it!
-                    if (!entry.hasFlags(DirectoryEntryFlag.Valid)) {
+                    if (!(entry as MicroDirectoryEntry).hasFlags(DirectoryEntryFlag.Valid)) {
                         return;
                     }
 

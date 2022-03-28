@@ -20,10 +20,11 @@
 
 <script>
 // eslint-disable-next-line no-unused-vars
-import {Filesystem, File as CodalFile, Directory} from "@/filesystem/Filesystem";
+import {File as CodalFile} from "@/filesystem/core/File";
 import FileTree from "@/components/FileTree";
 import FilePreview from "@/components/FilePreview";
 import {Splitpanes, Pane} from "splitpanes";
+import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
 
 export default {
   name: 'App',
@@ -46,7 +47,7 @@ export default {
       let reader = new FileReader();
 
       reader.onload = () => {
-        this.filesystem = new Filesystem(reader.result);
+        this.filesystem = new MicroflashFilesystem(reader.result);
         this.currentDirectory = this.filesystem.rootDirectory;
       }
 
@@ -76,7 +77,7 @@ export default {
 
       let buffer = e.data.d;
 
-      this.filesystem = new Filesystem(buffer);
+      this.filesystem = new MicroflashFilesystem(buffer);
       this.currentDirectory = this.filesystem.rootDirectory;
     });
   }

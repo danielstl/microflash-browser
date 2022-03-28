@@ -13,7 +13,7 @@
 <!--suppress ES6UnusedImports -->
 <script>
 // eslint-disable-next-line no-unused-vars
-import {MemorySpan} from "@/filesystem/MemorySpan.ts";
+import {MemorySpan} from "@/filesystem/utils/MemorySpan.ts";
 
 export default {
   name: "FilePreview",

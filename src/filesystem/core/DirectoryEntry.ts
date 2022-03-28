@@ -1,12 +1,17 @@
-import {Directory} from "@/filesystem/core/Directory";
-import * as Constants from "@/filesystem/Constants";
-import {MemorySpan} from "@/filesystem/MemorySpan";
-import {FileDeleteResult} from "@/filesystem/Filesystem";
+import {Directory} from "@/filesystem/core/File";
+import * as Constants from "@/filesystem/utils/Constants";
+import {MemorySpan} from "@/filesystem/utils/MemorySpan";
 import {File} from "@/filesystem/core/File";
+import {FileDeleteResult} from "@/filesystem/core/FileDeleteResult";
+import {FlashWritable} from "@/filesystem/core/FlashWritable";
 
-export abstract class DirectoryEntry {
+/**
+ * A directory entry contains metadata about a file or directory, pointing
+ * to where the data for it is held to facilitate reading or writing.
+ */
+export abstract class DirectoryEntry implements FlashWritable {
 
-    constructor(public parent: Directory | null, public fileName: string, public flags: number, public length: number) {
+    constructor(public parent: Directory | null, public fileName: string, public length: number) {
 
     }
 

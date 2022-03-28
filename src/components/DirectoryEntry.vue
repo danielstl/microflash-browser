@@ -8,13 +8,13 @@
            @drop.prevent="drop"
   >
     <div class="file-name">{{ entry.fileName }}</div>
-    <div class="file-size" v-if="!entry.isDirectory()">{{ formattedSize }}</div>
-    <div class="file-desc">{{ entry.isDirectory() ? "directory" : "file" }}</div>
+    <div class="file-size" v-if="!entry.isDirectory">{{ formattedSize }}</div>
+    <div class="file-desc">{{ entry.isDirectory ? "directory" : "file" }}</div>
   </Tooltip>
 </template>
 
 <script>
-import {DirectoryEntry} from "@/filesystem/Filesystem.ts";
+import {DirectoryEntry} from "@/filesystem/core/DirectoryEntry.ts";
 import Tooltip from "@/components/Tooltip";
 
 export default {
@@ -45,7 +45,7 @@ export default {
       immediate: true,
       async handler() {
         const uri = await this.entry.readData().toDataURI();
-        this.downloadURI = "application/octet-stream:" + this.entry.fileName + (this.entry.isDirectory() ? ".zip" : "") + ":" + uri;
+        this.downloadURI = "application/octet-stream:" + this.entry.fileName + (this.entry.isDirectory ? ".zip" : "") + ":" + uri;
       }
     }
   },

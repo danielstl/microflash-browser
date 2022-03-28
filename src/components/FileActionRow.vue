@@ -8,7 +8,7 @@
 </template>
 
 <script>
-import {Directory} from "@/filesystem/Filesystem";
+import {Directory} from "@/filesystem/core/File";
 
 export default {
   name: "FileActionRow",

@@ -26,12 +26,13 @@
 </template>
 
 <script>
-import {Directory, DirectoryEntry as DirEntry, File} from "@/filesystem/Filesystem.ts";
 import FileBreadcrumbs from "@/components/FileBreadcrumbs";
 import FileActionRow from "@/components/FileActionRow";
 import DirectoryEntry from "@/components/DirectoryEntry";
 import {reactive} from "vue";
 import Tip from "@/components/Tip";
+import {Directory} from "@/filesystem/core/File";
+import {DirectoryEntry as DirEntry} from "@/filesystem/core/DirectoryEntry";
 
 export default {
   name: "FileTree",
