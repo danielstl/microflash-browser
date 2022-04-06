@@ -42,6 +42,7 @@ export default {
 
 #file-contents {
   padding-top: 0.4em;
+  white-space: pre-line; /* break at \n chars */
 }
 
 #file-preview {

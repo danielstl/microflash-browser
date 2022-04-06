@@ -87,4 +87,8 @@ export default {
 .selected:hover {
   -background: rgb(27, 7, 79);
 }
+
+.file-name {
+  flex: 1;
+}
 </style>

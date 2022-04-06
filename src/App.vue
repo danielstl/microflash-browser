@@ -2,7 +2,7 @@
   <div id="app">
     <Splitpanes vertical="vertical" id="filesystem" class="default-theme">
       <Pane id="navigator-container">
-        <button @click="filesystem.connectToDapLink()">Connect USB</button>
+        <button v-if="false" @click="filesystem.connectToDapLink()">Connect USB</button>
         <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
                   @change-directory="(dir) => this.currentDirectory = dir"
                   @open-file="(file) => this.currentFile = file"/>
