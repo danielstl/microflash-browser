@@ -49,8 +49,9 @@ export class MicroDirectory extends Directory {
             entry.flags = DirectoryEntryFlag.Valid | DirectoryEntryFlag.Directory;
             entry.length = CODALFS_DIRECTORY_LENGTH;
         } else {
-            entry.flags = DirectoryEntryFlag.New;
-            entry.length = 0xFFFFFFFF; // we'll set the actual length when the file is written...
+            entry.flags = DirectoryEntryFlag.Valid; //todo new??
+            entry.length = 0; // we'll set the actual length when the file is written...
+            //entry.length = 0xFFFFFFFF; // we'll set the actual length when the file is written...
         }
 
         // write to the flash!
@@ -60,6 +61,8 @@ export class MicroDirectory extends Directory {
         entry.writeToFlash(flash);
         fs.fileAllocationTable.setBlockInfo(newBlock, BlockInfoFlag.EndOfFile);
 
+        // eslint-disable-next-line no-debugger
+        debugger;
         return entry.readData();
     }
 
@@ -126,6 +129,16 @@ export class MicroDirectory extends Directory {
         entryToModify.length = 0;
 
         return entryToModify;
+    }
+
+    modifyFile(file: DirectoryEntry, contents: string) {
+        // eslint-disable-next-line no-debugger
+        debugger;
+        if (!(file instanceof MicroDirectoryEntry)) {
+            return;
+        }
+
+        file.writeData(contents);
     }
 
     deleteEntry(filename: string | DirectoryEntry): FileDeleteResult {

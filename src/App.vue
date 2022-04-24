@@ -1,5 +1,9 @@
 <template>
   <div id="app">
+    <template v-if="true">
+      <input type="file" @change="handleFileSelect">
+      <button @click="dumpFilesystem">Save!</button>
+    </template>
     <Splitpanes vertical="vertical" id="filesystem" class="default-theme">
       <Pane id="navigator-container">
         <button v-if="false" @click="filesystem.connectToDapLink()">Connect USB</button>
@@ -11,10 +15,6 @@
         <FilePreview :file="this.currentFile"/>
       </Pane>
     </Splitpanes>
-    <template v-if="false">
-      <input type="file" @change="handleFileSelect">
-      <button @click="dumpFilesystem">Save!</button>
-    </template>
   </div>
 </template>
 
@@ -122,5 +122,42 @@ header {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+button {
+  cursor: pointer;
+  border-radius: 23px;
+  min-height: 46px;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+  padding: 0 16px;
+
+  /* Secondary buttons */
+  color: #000;
+  border: 2px solid #000;
+  background: #fff;
+
+  margin: 0 0 0 0.2em;
+
+  transition: all 0.2s;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+input[type=text] {
+  background: white;
+  border-radius: 23px;
+  padding: 6px;
+  font-size: 15px;
+
+  border: 2px solid #000;
+}
+
+input[type=text]:focus {
+
 }
 </style>

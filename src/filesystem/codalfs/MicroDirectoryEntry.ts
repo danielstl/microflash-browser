@@ -57,11 +57,9 @@ export class MicroDirectoryEntry extends DirectoryEntry {
         let block = this.firstBlock;
         let prevBlock = this.firstBlock;
 
-        alert(block);
-
         while (written < length) {
             // extend the chain, otherwise use the existing chain...
-            if (block == BlockInfoFlag.EndOfFile) {
+            if (block == BlockInfoFlag.EndOfFile || block == BlockInfoFlag.Unused) {
                 block = this.filesystem.flash.getFreeBlockIndex();
                 this.filesystem.fileAllocationTable.setBlockInfo(prevBlock, block);
             }
@@ -76,17 +74,22 @@ export class MicroDirectoryEntry extends DirectoryEntry {
             block = this.filesystem.fileAllocationTable.getBlockInfo(block);
         }
 
+        const endBlock = prevBlock;
+
         // mark any old blocks as empty
         // TODO check if this is appropriate?
-        while (block != BlockInfoFlag.EndOfFile) {
+        while (block != BlockInfoFlag.EndOfFile && block != BlockInfoFlag.Unused) {
             const newBlock = this.filesystem.fileAllocationTable.getBlockInfo(block);
 
             if (newBlock == BlockInfoFlag.EndOfFile) {
-                return;
+                break;
             }
 
-            this.filesystem.fileAllocationTable.setBlockInfo(newBlock, BlockInfoFlag.EndOfFile);
+            this.filesystem.fileAllocationTable.setBlockInfo(newBlock, BlockInfoFlag.Unused);
+            block = newBlock;
         }
+
+        this.filesystem.fileAllocationTable.setBlockInfo(endBlock, BlockInfoFlag.EndOfFile);
 
         this.length = written;
 
