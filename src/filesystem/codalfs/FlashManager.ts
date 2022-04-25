@@ -15,13 +15,94 @@ export class FlashManager {
     flashSize = 131072;
 
     dataView: DataView;
+    originalData: ArrayBuffer
 
     lastBlockAllocated = 0;
 
     constructor(public filesystem: MicroflashFilesystem, public data: ArrayBuffer) {
         this.filesystem = filesystem;
-        this.data = data;
         this.dataView = new DataView(this.data);
+
+        this.originalData = new ArrayBuffer(this.data.byteLength);
+        const wrapper = new DataView(this.originalData);
+
+        for (let i = 0; i < this.data.byteLength; i++) { // create a copy of the active data
+            wrapper.setInt8(i, this.dataView.getInt8(i));
+        }
+    }
+
+    get changesAsPatch(): MemorySpan {
+        // go through bytes 1 by 1
+        const original = new DataView(this.originalData);
+
+        /**
+         * Patches
+         *
+         * Stored back to back in memory
+         * Each patch is as follows:
+         * [ Patch position (2 bytes) ] [ Patch length (2 bytes) ] [ Patch data ('patch length' bytes) ]
+         */
+
+        const allPatches = new Array<Patch>();
+
+        let currentPatchStart = -1;
+        let currentPatch = new Array<number>();
+
+        for (let i = 0; i < this.originalData.byteLength; i++) {
+            const originalByte = original.getInt8(i);
+            const newByte = this.dataView.getInt8(i);
+
+            if (originalByte == newByte) { // unchanged
+
+                if (currentPatchStart !== -1) { // end our current patch!
+
+                    allPatches.push({position: currentPatchStart, data: currentPatch});
+
+                    currentPatchStart = -1;
+                    currentPatch = []
+
+                }
+            } else { // changed
+
+                if (currentPatchStart === -1) { // create a new patch
+                    currentPatchStart = i;
+                }
+
+                currentPatch.push(newByte); // add to patch
+            }
+        }
+
+        if (currentPatchStart !== -1) { // end our final patch!
+
+            allPatches.push({position: currentPatchStart, data: currentPatch});
+        }
+
+        const patchedBytes = new MemorySpan(new ArrayBuffer(allPatches.map(patch => patch.data.length + 4).reduce((curr, prev) => curr + prev, 0)));
+
+        allPatches.forEach(patch => {
+            patchedBytes.writeUint16(patch.position); // byte num
+            patchedBytes.writeUint16(patch.data.length); // patch length
+            patch.data.forEach(byte => patchedBytes.writeUint8(byte));
+        });
+
+        return patchedBytes;
+    }
+
+    applyPatch(patch: MemorySpan) {
+        if (patch.data.byteLength == 0) {
+            return;
+        }
+
+        const dataAsArray = new Uint8Array(this.data);
+
+        while (!patch.complete) {
+            const patchPos = patch.readUint16();
+            const patchLength = patch.readUint16();
+
+            const patchData = new Uint8Array(patch.readArrayBufferSlice(patchLength));
+
+            dataAsArray.set(patchData, patchPos);
+        }
     }
 
     get blocksPerPage(): number {
@@ -187,4 +268,10 @@ export class FlashManager {
         // Write our scratch to the page...
         this.getMemorySpan(page, this.pageSize).write(scratch);
     }
+}
+
+interface Patch {
+
+    position: number,
+    data: number[]
 }

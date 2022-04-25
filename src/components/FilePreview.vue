@@ -2,7 +2,7 @@
   <div id="file-preview" v-if="file">
     <div id="file-title">{{ file.meta.fileName }}</div>
     <div id="file-contents">
-      {{ contents }}
+      <textarea readonly v-model="contents"></textarea>
     </div>
   </div>
   <div id="file-preview-empty" v-else>
@@ -43,6 +43,16 @@ export default {
 #file-contents {
   padding-top: 0.4em;
   white-space: pre-line; /* break at \n chars */
+  width: 100%;
+  height: 100%;
+}
+
+#file-contents > textarea {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: none;
+  outline: none;
 }
 
 #file-preview {

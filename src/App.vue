@@ -1,9 +1,6 @@
 <template>
   <div id="app">
-    <template v-if="true">
-      <input type="file" @change="handleFileSelect">
-      <button @click="dumpFilesystem">Save!</button>
-    </template>
+    <DebugView :filesystem="filesystem" @handle-file-select="handleFileSelect" @dump-filesystem="dumpFilesystem"/>
     <Splitpanes vertical="vertical" id="filesystem" class="default-theme">
       <Pane id="navigator-container">
         <button v-if="false" @click="filesystem.connectToDapLink()">Connect USB</button>
@@ -23,15 +20,16 @@
 import {File as CodalFile} from "@/filesystem/core/File";
 import FileTree from "@/components/FileTree";
 import FilePreview from "@/components/FilePreview";
+import DebugView from "@/components/DebugView";
 import {Splitpanes, Pane} from "splitpanes";
 import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
 
 export default {
   name: 'App',
-  components: {FilePreview, FileTree, Splitpanes, Pane},
+  components: {DebugView, FilePreview, FileTree, Splitpanes, Pane},
   data() {
     return {
-      /** @type {Filesystem | null} */
+      /** @type {MicroflashFilesystem | null} */
       filesystem: null,
       /** @type {Array<CodalFile>} */
       files: [],
@@ -85,8 +83,11 @@ export default {
 </script>
 
 <style>
-html, body, #app {
+html, body, #app, textarea {
   font-family: Helvetica Now, Helvetica, Arial, sans-serif;
+}
+
+html, body, #app {
   height: 100%;
   width: 100%;
   margin: 0;

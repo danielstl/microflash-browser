@@ -148,6 +148,10 @@ export class MemorySpan {
         return this;
     }
 
+    get complete() {
+        return this.readIndex >= this.data.byteLength;
+    }
+
     write(span: MemorySpan) {
         new Uint8Array(this.data.buffer, this.data.byteOffset, this.data.byteLength).set(new Uint8Array(span.data.buffer), this.readIndex);
 
@@ -165,5 +169,19 @@ export class MemorySpan {
         const dataBuffer = new Uint8Array(new Array<number>(size).fill(0xFF)); // Set to empty flash
 
         return new MemorySpan(dataBuffer.buffer);
+    }
+
+    download(name: string) {
+        const blob = new Blob([this.data.buffer]);
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = document.createElement('a')
+        a.href = blobUrl;
+        a.download = name;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+
+        a.click();
+        a.remove();
     }
 }

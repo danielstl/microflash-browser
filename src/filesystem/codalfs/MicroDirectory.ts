@@ -131,9 +131,7 @@ export class MicroDirectory extends Directory {
         return entryToModify;
     }
 
-    modifyFile(file: DirectoryEntry, contents: string) {
-        // eslint-disable-next-line no-debugger
-        debugger;
+    modifyEntry(file: DirectoryEntry, contents: string) {
         if (!(file instanceof MicroDirectoryEntry)) {
             return;
         }

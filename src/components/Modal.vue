@@ -25,7 +25,7 @@ export default {
 
 <style scoped>
 .modal-container {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.25);
   position: absolute;
   top: 0;
   left: 0;
@@ -54,7 +54,7 @@ export default {
 
 .modal-window {
   background: white;
-  border-radius: 16px;
+  border-radius: 23px;
   overflow: clip;
   border: 2px solid #353b42;
   box-shadow: rgba(0, 0, 0, 0.2) 0 4px 12px;

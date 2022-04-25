@@ -1,15 +1,15 @@
 <template>
-  <div>
+  <div id="root" @dragenter="fileDragEnter" @dragover.prevent="fileDragOver" @drop.prevent="fileDrop">
     <header>Your micro:bit files</header>
 
-    <Modal v-if="creatingFile" title="Create file">
+    <Modal v-if="creatingFile" title="Create file"> <!-- todo refactor into individual components -->
       <form id="create-file-form">
         <div class="form-section">
           <div class="label">File type</div>
           <input id="radio-file" type="radio" value="file" v-model="createdFileType"/>
           <label for="radio-file">File</label>
           <input id="radio-dir" type="radio" value="directory" v-model="createdFileType"/>
-          <label for="radio-dir">Directory</label>
+          <label for="radio-dir">Folder</label>
         </div>
         <div class="form-section">
           <div class="label">File name</div>
@@ -26,7 +26,8 @@
     </Modal>
 
     <Modal v-if="editingFile" :title="'Edit ' + editingFile.meta.fileName">
-      <textarea v-model="editingFileText"></textarea>
+      <!-- todo refactor into individual components -->
+      <textarea id="edit-file-textbox" v-model="editingFileText"></textarea>
       <template v-slot:buttons>
         <button @click="editingFile = null">Cancel</button>
         <button @click="submitEditedFile">OK</button>
@@ -69,6 +70,7 @@ import Tip from "@/components/Tip";
 import {Directory, File} from "@/filesystem/core/File";
 import {DirectoryEntry as DirEntry} from "@/filesystem/core/DirectoryEntry";
 import Modal from "@/components/Modal";
+import {MemorySpan} from "@/filesystem/utils/MemorySpan";
 
 export default {
   name: "FileTree",
@@ -92,6 +94,11 @@ export default {
     // eslint-disable-next-line no-unused-vars
     createdFileName(newVal) {
       // todo validate
+    },
+    editingFile(newVal, oldVal) {
+      if (oldVal != null && newVal == null) {
+        this.editingFileText = "";
+      }
     }
   },
   methods: {
@@ -155,10 +162,10 @@ export default {
       let file = this.editingFile;
       let content = this.editingFileText;
 
-      this.directory.modifyFile(file.meta, content);
+      this.directory.modifyEntry(file.meta, content);
 
       this.editingFile = null;
-      this.editingFileText = "";
+      this.previewFile(file.meta);
     },
     deleteSelectedFiles() {
       this.selectedFiles.forEach(f => f.delete());
@@ -168,9 +175,11 @@ export default {
       this.selectedFiles.forEach(f => f.readData().download());
     },
     editSelectedFile() {
-      const data = prompt("File data???");
-
-      this.selectedFiles[0].writeData(data);
+      this.selectedFiles.forEach(f => { // todo this is quite hacky as we only want to edit one file at a time
+        let file = f.readData();
+        this.editingFile = file;
+        this.editingFileText = Buffer.from(file.data).toString("utf-8");
+      });
     },
     formatBytes(bytes) {
       if (bytes < 1024) {
@@ -184,6 +193,39 @@ export default {
       let breadcrumbs = this.directory.meta.breadcrumbs;
 
       this.changeDirectory(breadcrumbs[breadcrumbIndex].readData());
+    },
+    fileDragEnter() {
+
+    },
+    fileDragOver(ev) {
+      ev.dataTransfer.dropEffect = "copy";
+    },
+    fileDrop(ev) {
+      let files = [];
+
+      if (ev.dataTransfer.items) {
+        for (let item of ev.dataTransfer.items) {
+          if (item.kind !== 'file') {
+            continue;
+          }
+
+          files.push(item.getAsFile());
+        }
+      }
+
+      files.forEach(async file => {
+        let fileData = await file.arrayBuffer();
+
+        let mbFile = this.directory.createFile(file.name + "\0", false);
+
+        if (mbFile instanceof File) {
+          mbFile.meta.writeData(new MemorySpan(fileData));
+          return;
+        }
+
+        //otherwise it's an error, todo user friendly error
+        alert("Error creating file: " + mbFile);
+      });
     }
   }
 }
@@ -196,6 +238,10 @@ export default {
   gap: 0.2em;
   flex: 1;
   padding: 0.3em;
+}
+
+#root {
+  height: 100%;
 }
 
 #empty-directory {
@@ -223,5 +269,10 @@ export default {
 .label {
   font-weight: 600;
   margin-bottom: 0.25em;
+}
+
+#edit-file-textbox {
+  width: 50vw;
+  height: 30vh;
 }
 </style>

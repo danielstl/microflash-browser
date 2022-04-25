@@ -48,7 +48,7 @@ export class MicroDirectoryEntry extends DirectoryEntry {
 
     writeData(toWrite: MemorySpan | string): void {
         if (typeof toWrite == "string") {
-            toWrite = new MemorySpan(new TextEncoder().encode(toWrite + "\0").buffer);
+            toWrite = new MemorySpan(new TextEncoder().encode(toWrite).buffer);
         }
 
         const length = toWrite.data.byteLength;
@@ -76,16 +76,20 @@ export class MicroDirectoryEntry extends DirectoryEntry {
 
         const endBlock = prevBlock;
 
+        // eslint-disable-next-line no-debugger
+        debugger;
+
         // mark any old blocks as empty
         // TODO check if this is appropriate?
         while (block != BlockInfoFlag.EndOfFile && block != BlockInfoFlag.Unused) {
             const newBlock = this.filesystem.fileAllocationTable.getBlockInfo(block);
 
-            if (newBlock == BlockInfoFlag.EndOfFile) {
+            this.filesystem.fileAllocationTable.setBlockInfo(block, BlockInfoFlag.Unused);
+
+            if (newBlock == BlockInfoFlag.EndOfFile || newBlock == BlockInfoFlag.Unused) {
                 break;
             }
 
-            this.filesystem.fileAllocationTable.setBlockInfo(newBlock, BlockInfoFlag.Unused);
             block = newBlock;
         }
 

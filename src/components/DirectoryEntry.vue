@@ -9,7 +9,7 @@
   >
     <div class="file-name">{{ entry.fileName }}</div>
     <div class="file-size" v-if="!entry.isDirectory">{{ formattedSize }}</div>
-    <div class="file-desc">{{ entry.isDirectory ? "directory" : "file" }}</div>
+    <div class="file-desc">{{ entry.isDirectory ? "folder" : "file" }}</div>
   </Tooltip>
 </template>
 

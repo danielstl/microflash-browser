@@ -18,7 +18,7 @@ export default {
   },
   computed: {
     canEdit() {
-      return this.selectedFiles.size === 1;
+      return this.selectedFiles.size === 1 && [...this.selectedFiles].every(file => !file.isDirectory);
     },
     canDelete() {
       return this.selectedFiles.size > 0;

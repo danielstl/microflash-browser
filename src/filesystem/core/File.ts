@@ -129,7 +129,7 @@ export abstract class Directory extends File {
 
     abstract createFile(filename: string, directory: boolean): File | FileCreateError; // todo throw instead?
 
-    abstract modifyFile(file: DirectoryEntry, contents: string): void;
+    abstract modifyEntry(file: DirectoryEntry, contents: string): void;
 
-    abstract deleteEntry(filename: string | DirectoryEntry): FileDeleteResult;
+    abstract deleteEntry(file: string | DirectoryEntry): FileDeleteResult;
 }
