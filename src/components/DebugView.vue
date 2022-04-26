@@ -8,11 +8,12 @@
       <button @click="dumpBinaryPatch">Dump binary patch</button>
       <div>Apply binary patch</div>
       <input type="file" @change="handleDumpRestore">
+      <button @click="connectToDAPLink">Connect to DAPLink</button>
       <div>Block view</div>
       <div id="block-view">
-        <div class="block" v-for="(block, ix) in getBlocks()" :key="ix" :style="{backgroundColor: block === 65535 ? '#ccc' : block === 61439 ? 'orange' : block === 0 ? 'red' : 'lightblue'}">
-          {{ ix }}
-          {{ block === 65535 ? "N/A" : block === 61439 ? "EOF" : block === 0 ? "DEL" : block }}
+        <div class="block" v-for="(block, ix) in getBlocks()" @click="displayBlockContent(ix)" :title="ix * this.filesystem.flash.blockSize + ' - ' + (((ix + 1) * this.filesystem.flash.blockSize) - 1)" :key="ix" :style="{backgroundColor: block === 65535 ? '#ccc' : block === 61439 ? 'orange' : block === 0 ? 'red' : 'lightblue'}">
+          <div class="block-id">{{ ix }}</div>
+          <div>{{ block === 65535 ? "-" : block === 61439 ? "EOF" : block === 0 ? "DEL" : block }}</div>
         </div>
       </div>
       <template v-slot:buttons>
@@ -62,6 +63,29 @@ export default {
       }
 
       reader.readAsArrayBuffer(file);
+    },
+    async connectToDAPLink() {
+      const daplink = await this.filesystem.connectToDapLink();
+
+      console.log(daplink);
+
+      const data = MemorySpan.empty(100000);
+
+      data.writeUint8(3);
+
+      await daplink.flash(data.data, this.filesystem.flash.pageSize);
+
+      //let op = new DAPOperation()
+      //let webusb = new MicrobitWebUSBConnection();
+
+      //let res = await webusb.connect();
+
+      //alert(res);
+
+      //webusb.flash();
+    },
+    displayBlockContent(blockIndex) {
+      alert(this.filesystem.flash.getBlock(blockIndex).asUtf8String());
     }
   }
 }
@@ -75,12 +99,21 @@ export default {
 }
 
 #block-view {
-  display: flex;
-  gap: 0.25em;
-  overflow: scroll;
+  overflow: auto;
 }
 
 .block {
-  flex: 1;
+  display: inline-flex;
+  width: 3em;
+  height: 3em;
+  margin: 0.1em;
+  text-align: center;
+  flex-direction: column;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.block-id {
+  font-weight: bold;
 }
 </style>

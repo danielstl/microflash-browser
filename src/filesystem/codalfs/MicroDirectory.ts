@@ -146,6 +146,13 @@ export class MicroDirectory extends Directory {
             return FileDeleteResult.INVALID_FILENAME;
         }
 
+
+        const file = entry.readData();
+
+        if (file instanceof Directory) { // we're deleting a directory, make sure to recurse and delete all child entries...
+            file.entries.forEach(entry => file.deleteEntry(entry));
+        }
+
         let block = entry.firstBlock;
         let nextBlock: number;
 

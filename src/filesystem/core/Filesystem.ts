@@ -12,7 +12,7 @@ export abstract class Filesystem {
     /**
      * Must be called from a user gesture handler
      */
-    async connectToDapLink() {
+    async connectToDapLink(): Promise<DAPLink> {
         const device = await navigator.usb.requestDevice({filters: []});
 
         const transport = new WebUSB(device);
@@ -22,5 +22,7 @@ export abstract class Filesystem {
 
         // @ts-ignore
         window.$daplink = daplink;
+
+        return daplink;
     }
 }

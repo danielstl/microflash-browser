@@ -158,6 +158,10 @@ export class MemorySpan {
         this.skip(span.data.buffer.byteLength);
     }
 
+    asUtf8String(): string {
+        return Buffer.from(this.data.buffer, this.data.byteOffset, this.data.byteLength).toString("utf-8");
+    }
+
     /**
      * Creates an empty memory span with a specified length. To
      * emulate the actual flash storage, 'empty' means set to 0xFFFFFF...
