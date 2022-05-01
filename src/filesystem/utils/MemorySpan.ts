@@ -1,21 +1,26 @@
 /**
  * Wrapper around the native ArrayBuffer APIs to allow for easier
  * arbitrary reads and writes to the filesystem.
- * 
+ *
  * MemorySpan keeps track of how far within it has been read, to
  * allow for easier chaining of reads (for example, to load in a
  * directory entry)
  */
+import {Patch} from "@/filesystem/codalfs/FlashManager";
+import {FlashWritable} from "@/filesystem/core/FlashWritable";
+
 export class MemorySpan {
 
     data: DataView;
     readIndex: number = 0;
 
-    constructor(data: DataView | ArrayBuffer) {
+    constructor(data: DataView | ArrayBuffer | number[]) {
         if (data instanceof DataView) {
             this.data = data;
-        } else {
+        } else if (data instanceof ArrayBuffer) {
             this.data = new DataView(data as ArrayBuffer);
+        } else {
+            this.data = new DataView(new Uint8Array(data).buffer);
         }
     }
 
@@ -164,15 +169,27 @@ export class MemorySpan {
 
     /**
      * Creates an empty memory span with a specified length. To
-     * emulate the actual flash storage, 'empty' means set to 0xFFFFFF...
-     * 
+     * emulate the actual flash storage, 'empty' (by default) means set to 0xFFFFFF...
+     *
      * @param size the size of memory to create
+     * @param fillWith the value to fill the span with. Defaults to 0xFF
      * @returns the empty memory span
      */
-    static empty(size: number): MemorySpan {
-        const dataBuffer = new Uint8Array(new Array<number>(size).fill(0xFF)); // Set to empty flash
+    static empty(size: number, fillWith: number = 0xFF): MemorySpan {
+        const dataBuffer = new Uint8Array(new Array<number>(size).fill(fillWith));
 
         return new MemorySpan(dataBuffer.buffer);
+    }
+
+    static fromPatches(patches: Patch[]): MemorySpan {
+        const patchedBytes = new MemorySpan(new ArrayBuffer(patches.map(patch => patch.data.byteLength + 6).reduce((curr, prev) => curr + prev, 0)));
+
+        patches.forEach(patch => {
+            patch.writeToFlash(patchedBytes);
+            //patch.data.forEach(byte => patchedBytes.writeUint8(byte));
+        });
+
+        return patchedBytes;
     }
 
     download(name: string) {

@@ -161,4 +161,11 @@ input[type=text] {
 input[type=text]:focus {
 
 }
+
+.inline-warn {
+  background: rgba(245, 77, 77, 0.8);
+  padding: 0.25em;
+  border-left: 3px solid #d20000;
+  border-radius: 3px;
+}
 </style>

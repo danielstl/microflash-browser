@@ -5,6 +5,7 @@ import {BlockType} from "@/filesystem/codalfs/BlockType";
 import {MicroDirectoryEntry} from "@/filesystem/codalfs/MicroDirectoryEntry";
 import {MicroDirectory} from "@/filesystem/codalfs/MicroDirectory";
 import {DirectoryEntryFlag} from "@/filesystem/codalfs/DirectoryEntryFlag";
+import {FlashWritable} from "@/filesystem/core/FlashWritable";
 
 export class FlashManager {
 
@@ -31,7 +32,7 @@ export class FlashManager {
         }
     }
 
-    get changesAsPatch(): MemorySpan {
+    get changesAsPatch(): Patch[] {
         // go through bytes 1 by 1
         const original = new DataView(this.originalData);
 
@@ -46,46 +47,43 @@ export class FlashManager {
         const allPatches = new Array<Patch>();
 
         let currentPatchStart = -1;
-        let currentPatch = new Array<number>();
+        let currentPatch = new ArrayBuffer(original.byteLength);
+        let currentPatchLength = 0;
 
         for (let i = 0; i < this.originalData.byteLength; i++) {
-            const originalByte = original.getInt8(i);
-            const newByte = this.dataView.getInt8(i);
+            const originalByte = original.getUint8(i);
+            const newByte = this.dataView.getUint8(i);
 
             if (originalByte == newByte) { // unchanged
 
                 if (currentPatchStart !== -1) { // end our current patch!
 
-                    allPatches.push({position: currentPatchStart, data: currentPatch});
+                    allPatches.push(new Patch(currentPatchStart, currentPatch.slice(0, currentPatchLength)));
 
                     currentPatchStart = -1;
-                    currentPatch = []
+                    currentPatchLength = 0;
+                    currentPatch = new ArrayBuffer(original.byteLength - i);
 
                 }
             } else { // changed
 
                 if (currentPatchStart === -1) { // create a new patch
                     currentPatchStart = i;
+                    currentPatchLength = 0;
                 }
 
-                currentPatch.push(newByte); // add to patch
+                new DataView(currentPatch).setUint8(currentPatchLength, newByte); // add to patch
             }
+
+            currentPatchLength++;
         }
 
         if (currentPatchStart !== -1) { // end our final patch!
 
-            allPatches.push({position: currentPatchStart, data: currentPatch});
+            allPatches.push(new Patch(currentPatchStart, currentPatch.slice(0, currentPatchLength)));
         }
 
-        const patchedBytes = new MemorySpan(new ArrayBuffer(allPatches.map(patch => patch.data.length + 4).reduce((curr, prev) => curr + prev, 0)));
-
-        allPatches.forEach(patch => {
-            patchedBytes.writeUint16(patch.position); // byte num
-            patchedBytes.writeUint16(patch.data.length); // patch length
-            patch.data.forEach(byte => patchedBytes.writeUint8(byte));
-        });
-
-        return patchedBytes;
+        return allPatches;
     }
 
     applyPatch(patch: MemorySpan) {
@@ -96,8 +94,10 @@ export class FlashManager {
         const dataAsArray = new Uint8Array(this.data);
 
         while (!patch.complete) {
-            const patchPos = patch.readUint16();
+            const patchPos = patch.readUint32();
             const patchLength = patch.readUint16();
+            // eslint-disable-next-line no-debugger
+            debugger;
 
             const patchData = new Uint8Array(patch.readArrayBufferSlice(patchLength));
 
@@ -270,8 +270,30 @@ export class FlashManager {
     }
 }
 
-interface Patch {
+export class Patch implements FlashWritable {
 
-    position: number,
-    data: number[]
+    constructor(public position: number, public data: ArrayBuffer) {
+
+    }
+
+    public split(atSize: number): Patch[] {
+        const res: Patch[] = [];
+
+        if (this.data.byteLength <= atSize) {
+            res.push(this);
+            return res;
+        }
+
+        for (let i = 0; i < this.data.byteLength; i += atSize) {
+            res.push(new Patch(this.position + i, this.data.slice(i, i + atSize - 1)));
+        }
+
+        return res;
+    }
+
+    writeToFlash(flash: MemorySpan): void {
+        flash.writeUint32(this.position);
+        flash.writeUint16(this.data.byteLength);
+        flash.write(new MemorySpan(this.data));
+    }
 }

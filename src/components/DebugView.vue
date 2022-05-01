@@ -2,6 +2,7 @@
   <div>
     <button id="debug-button" @click="visible = true">Debug</button>
     <Modal title="Debug" v-if="visible" id="root-modal">
+      <div class="inline-warn" v-if="!filesystem">Failed to load filesystem</div>
       <div>Load filesystem from dump</div>
       <input type="file" @change="ev => this.$emit('handle-file-select', ev)">
       <button @click="this.$emit('dump-filesystem')">Dump current filesystem</button>
@@ -27,6 +28,7 @@
 import Modal from "@/components/Modal";
 import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
 import {MemorySpan} from "@/filesystem/utils/MemorySpan";
+import {DAPWrapper} from "@/filesystem/webusb/dap-wrapper";
 
 export default {
   name: "DebugView",
@@ -41,6 +43,10 @@ export default {
   },
   methods: {
     getBlocks() {
+      if (!this.filesystem) {
+        return [];
+      }
+
       let size = (this.filesystem.fileAllocationTable.fileTableSize * this.filesystem.flash.blockSize) / 2;
       let blocks = [];
 
@@ -51,7 +57,7 @@ export default {
       return blocks;
     },
     dumpBinaryPatch() {
-      let patch = this.filesystem.flash.changesAsPatch;
+      let patch = MemorySpan.fromPatches(this.filesystem.flash.changesAsPatch);
       patch.download("FS_PATCH.dat");
     },
     handleDumpRestore(e) {
@@ -65,15 +71,101 @@ export default {
       reader.readAsArrayBuffer(file);
     },
     async connectToDAPLink() {
-      const daplink = await this.filesystem.connectToDapLink();
+      const device = await navigator.usb.requestDevice({filters: []});
+      const wrapper = new DAPWrapper(device);
 
-      console.log(daplink);
+      await wrapper.reconnectAsync();
 
-      const data = MemorySpan.empty(100000);
+      const interfaceIndex = parseInt(prompt("address??"));
 
-      data.writeUint8(3);
 
-      await daplink.flash(data.data, this.filesystem.flash.pageSize);
+      /////////////
+/*      const span = MemorySpan.empty(256);
+
+      span.writeUint16(4);
+
+      const buf = new Uint32Array(span.data.buffer);
+
+      await wrapper.writeBlockAsync(interfaceIndex, buf);
+///////////////////*/
+
+      const patches = this.filesystem.flash.changesAsPatch.flatMap(patch => patch.split(248));
+
+
+      /*const patchSizeLimit = 254;
+
+      const patchesAsSpans = [];
+
+      let span = MemorySpan.empty(256);
+
+      let lastPatch = null;
+
+      for (let i = 0; i < patches.length; i++) {
+        const patch = patches[i];
+
+        if (span.readIndex >= 250) { // don't start a new patch on this same span!
+          patchesAsSpans.push(span);
+
+          span = MemorySpan.empty(256);
+        }
+
+        for (let segment = 0; segment < patch.data.length; segment++) {
+
+          span.writeUint32(patch.position);
+          span.writeUint8(patch.position);
+        }
+      }*/
+
+      async function waitForReady() {
+        return new Promise((resolve) => {
+
+          const interval = setInterval(async () => {
+
+            const res = new DataView((await wrapper.readBlockAsync(interfaceIndex, 64)).buffer); // 256
+
+            if (res.getUint8(0) === 9) { // ready!
+              console.log("READY!!");
+              clearInterval(interval);
+
+              resolve();
+            }
+
+          }, 10);
+        });
+      }
+
+      for (const patch of patches) {
+        console.log("Writing out patch", patch);
+
+        await waitForReady();
+
+        const span = MemorySpan.empty(256);
+
+        span.writeUint16(1);
+        patch.writeToFlash(span);
+
+        console.log("patch span", span.data.buffer);
+
+        const buf = new Uint32Array(span.data.buffer.slice(4));
+        // eslint-disable-next-line no-debugger
+        debugger;
+        await wrapper.writeBlockAsync(interfaceIndex + 4, buf); // write buffer before the actual CMD
+        // prevent possible race errors??? todo: find a better mutex strat...
+
+        const buf2 = new Uint32Array(span.data.buffer.slice(0, 4));
+
+        await wrapper.writeBlockAsync(interfaceIndex, buf2);
+      }
+
+      //const daplink = await this.filesystem.connectToDapLink();
+
+      //console.log(daplink);
+
+      //const data = MemorySpan.empty(100000);
+
+      //data.writeUint8(3);
+
+      //await daplink.flash(data.data, this.filesystem.flash.pageSize);
 
       //let op = new DAPOperation()
       //let webusb = new MicrobitWebUSBConnection();
