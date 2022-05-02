@@ -91,20 +91,14 @@ html, body, #app {
   height: 100%;
   width: 100%;
   margin: 0;
+
+  user-select: none;
 }
 
 #filesystem {
   display: flex;
 
   height: 100%;
-}
-
-header {
-  font-size: xx-large;
-  font-weight: 600;
-  background-image: linear-gradient(122deg, #00c800 -3%, #3eb6fd 49%);
-  padding: 0.25em;
-  color: white;
 }
 
 .splitpanes__pane {
@@ -114,7 +108,7 @@ header {
 .splitpanes__splitter {
   width: 5px;
   padding: 0;
-  background: #999;
+  background-image: linear-gradient(90deg, rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0));
   background-clip: content-box;
   cursor: col-resize;
 }
@@ -131,7 +125,6 @@ button {
   min-height: 46px;
   font-weight: 700;
   font-size: 15px;
-  letter-spacing: 0.3px;
   padding: 0 16px;
 
   /* Secondary buttons */
@@ -139,9 +132,23 @@ button {
   border: 2px solid #000;
   background: #fff;
 
+  outline: 2px solid transparent;
+
   margin: 0 0 0 0.2em;
 
   transition: all 0.2s;
+}
+
+button:hover:not(:disabled) {
+  --transform: scale(1.05);
+}
+
+button:active:hover:not(:disabled) {
+  transform: scale(0.9);
+}
+
+button:focus {
+  outline: 2px solid #3eb6fd;
 }
 
 button:disabled {
@@ -151,15 +158,19 @@ button:disabled {
 
 input[type=text] {
   background: white;
-  border-radius: 23px;
-  padding: 6px;
   font-size: 15px;
 
-  border: 2px solid #000;
+  border: 1px solid #dadada;
+  padding: 0.5em;
+  border-radius: 6px;
+
+  outline: 2px solid transparent;
+
+  transition: all 0.2s;
 }
 
 input[type=text]:focus {
-
+  outline: 2px solid #3eb6fd;
 }
 
 .inline-warn {

@@ -2,6 +2,7 @@
   <div id="file-preview" v-if="file">
     <div id="file-title">{{ file.meta.fileName }}</div>
     <div id="file-contents">
+      <MonacoEditor v-if="false" v-model="contents" language="html"/>
       <textarea readonly v-model="contents"></textarea>
     </div>
   </div>
@@ -14,9 +15,11 @@
 <script>
 // eslint-disable-next-line no-unused-vars
 import {MemorySpan} from "@/filesystem/utils/MemorySpan.ts";
+import MonacoEditor from "vue-monaco";
 
 export default {
   name: "FilePreview",
+  components: {MonacoEditor},
   props: {
     file: Object // File
   },
@@ -43,8 +46,9 @@ export default {
 #file-contents {
   padding-top: 0.4em;
   white-space: pre-line; /* break at \n chars */
-  width: 100%;
-  height: 100%;
+  display: flex;
+
+  flex: 1;
 }
 
 #file-contents > textarea {
@@ -53,11 +57,17 @@ export default {
   resize: none;
   border: none;
   outline: none;
+  margin: 0;
+  padding: 0;
+
+  flex: 1;
 }
 
 #file-preview {
   padding: 0.6em;
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 #file-preview-empty {

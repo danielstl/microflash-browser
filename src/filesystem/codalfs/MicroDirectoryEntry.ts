@@ -119,8 +119,6 @@ export class MicroDirectoryEntry extends DirectoryEntry {
     static readFromBlock(filesystem: MicroflashFilesystem, parent: Directory | null, blockIndex: number, offset: number = 0): MicroDirectoryEntry {
         const block = filesystem.flash.getBlock(blockIndex);
 
-        console.log("block!", block);
-
         block.skip(offset);
 
         const fileName = block.readString(16);

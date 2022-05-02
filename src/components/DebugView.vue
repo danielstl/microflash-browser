@@ -1,22 +1,28 @@
 <template>
   <div>
     <button id="debug-button" @click="visible = true">Debug</button>
-    <Modal title="Debug" v-if="visible" id="root-modal">
-      <div class="inline-warn" v-if="!filesystem">Failed to load filesystem</div>
-      <div>Load filesystem from dump</div>
-      <input type="file" @change="ev => this.$emit('handle-file-select', ev)">
-      <button @click="this.$emit('dump-filesystem')">Dump current filesystem</button>
-      <button @click="dumpBinaryPatch">Dump binary patch</button>
-      <div>Apply binary patch</div>
-      <input type="file" @change="handleDumpRestore">
-      <button @click="connectToDAPLink">Connect to DAPLink</button>
-      <div>Block view</div>
-      <div id="block-view">
-        <div class="block" v-for="(block, ix) in getBlocks()" @click="displayBlockContent(ix)" :title="ix * this.filesystem.flash.blockSize + ' - ' + (((ix + 1) * this.filesystem.flash.blockSize) - 1)" :key="ix" :style="{backgroundColor: block === 65535 ? '#ccc' : block === 61439 ? 'orange' : block === 0 ? 'red' : 'lightblue'}">
-          <div class="block-id">{{ ix }}</div>
-          <div>{{ block === 65535 ? "-" : block === 61439 ? "EOF" : block === 0 ? "DEL" : block }}</div>
+    <Modal title="Debug" :visible="visible" id="root-modal">
+      <template v-if="visible">
+        <HexViewer v-if="false" :data="'test'"/>
+        <div class="inline-warn" v-if="!filesystem">Failed to load filesystem</div>
+        <div>Load filesystem from dump</div>
+        <input type="file" @change="ev => this.$emit('handle-file-select', ev)">
+        <button @click="this.$emit('dump-filesystem')">Dump current filesystem</button>
+        <button @click="dumpBinaryPatch">Dump binary patch</button>
+        <div>Apply binary patch</div>
+        <input type="file" @change="handleDumpRestore">
+        <button @click="connectToDAPLink">Connect to DAPLink</button>
+        <div>Block view</div>
+        <div id="block-view" v-if="this.filesystem?.flash">
+          <div class="block" v-for="(block, ix) in getBlocks()" @click="displayBlockContent(ix)"
+               :title="ix * this.filesystem.flash.blockSize + ' - ' + (((ix + 1) * this.filesystem.flash.blockSize) - 1)"
+               :key="ix"
+               :style="{backgroundColor: block === 65535 ? '#ccc' : block === 61439 ? 'orange' : block === 0 ? 'red' : 'lightblue'}">
+            <div class="block-id">{{ ix }}</div>
+            <div>{{ block === 65535 ? "-" : block === 61439 ? "EOF" : block === 0 ? "DEL" : block }}</div>
+          </div>
         </div>
-      </div>
+      </template>
       <template v-slot:buttons>
         <button @click="visible = false">Hide</button>
       </template>
@@ -29,10 +35,11 @@ import Modal from "@/components/Modal";
 import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
 import {MemorySpan} from "@/filesystem/utils/MemorySpan";
 import {DAPWrapper} from "@/filesystem/webusb/dap-wrapper";
+import HexViewer from "@/components/HexViewer";
 
 export default {
   name: "DebugView",
-  components: {Modal},
+  components: {HexViewer, Modal},
   props: {
     filesystem: MicroflashFilesystem
   },
@@ -80,14 +87,14 @@ export default {
 
 
       /////////////
-/*      const span = MemorySpan.empty(256);
+      /*      const span = MemorySpan.empty(256);
 
-      span.writeUint16(4);
+            span.writeUint16(4);
 
-      const buf = new Uint32Array(span.data.buffer);
+            const buf = new Uint32Array(span.data.buffer);
 
-      await wrapper.writeBlockAsync(interfaceIndex, buf);
-///////////////////*/
+            await wrapper.writeBlockAsync(interfaceIndex, buf);
+      ///////////////////*/
 
       const patches = this.filesystem.flash.changesAsPatch.flatMap(patch => patch.split(248));
 

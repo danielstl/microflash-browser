@@ -5727,7 +5727,7 @@ loader-utils@^1.0.2, loader-utils@^1.1.0, loader-utils@^1.2.3, loader-utils@^1.4
     emojis-list "^3.0.0"
     json5 "^1.0.1"
 
-loader-utils@^2.0.0:
+loader-utils@^2.0.0, loader-utils@^2.0.2:
   version "2.0.2"
   resolved "https://registry.npmmirror.com/loader-utils/-/loader-utils-2.0.2.tgz"
   integrity sha512-TM57VeHptv569d/GKh6TAYdzKblwDNiumOdkFnejjD0XwTH87K90w3O7AiJRqdQoXygvi1VQTJTLGhJl7WqA7A==
@@ -6110,6 +6110,18 @@ mkdirp@^0.5.1, mkdirp@^0.5.3, mkdirp@^0.5.5, mkdirp@~0.5.1:
   dependencies:
     minimist "^1.2.5"
 
+monaco-editor-webpack-plugin@^7.0.1:
+  version "7.0.1"
+  resolved "https://registry.yarnpkg.com/monaco-editor-webpack-plugin/-/monaco-editor-webpack-plugin-7.0.1.tgz#ba19c60aba990184e36ad8722b1ed6a564527c7c"
+  integrity sha512-M8qIqizltrPlIbrb73cZdTWfU9sIsUVFvAZkL3KGjAHmVWEJ0hZKa/uad14JuOckc0GwnCaoGHvMoYtJjVyCzw==
+  dependencies:
+    loader-utils "^2.0.2"
+
+monaco-editor@^0.20.0:
+  version "0.20.0"
+  resolved "https://registry.yarnpkg.com/monaco-editor/-/monaco-editor-0.20.0.tgz#5d5009343a550124426cb4d965a4d27a348b4dea"
+  integrity sha512-hkvf4EtPJRMQlPC3UbMoRs0vTAFAYdzFQ+gpMb8A+9znae1c43q8Mab9iVsgTcg/4PNiLGGn3SlDIa8uvK1FIQ==
+
 move-concurrently@^1.0.1:
   version "1.0.1"
   resolved "https://registry.npmmirror.com/move-concurrently/-/move-concurrently-1.0.1.tgz"
@@ -6168,6 +6180,11 @@ nan@^2.12.1:
   version "2.15.0"
   resolved "https://registry.yarnpkg.com/nan/-/nan-2.15.0.tgz#3f34a473ff18e15c1b5626b62903b5ad6e665fee"
   integrity sha512-8ZtvEnA2c5aYCZYd1cvgdnU6cqwixRoYg70xPLWUws5ORTa/lnw+u4amixRS/Ac5U5mQVgp9pnlSUnbNWFaWZQ==
+
+nano-assign@^1.0.0:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/nano-assign/-/nano-assign-1.0.1.tgz#abb1c50d0416b865fb37bbd155c5368bb54378e5"
+  integrity sha512-1K8ncUoAYFPYcCZqrB+K2XQaFCmA35rryJCtPkGrG3zYkwm+iIUZRIHyaAfuy6zxaK9siPdjeJq7+Inijm6xhw==
 
 nanoid@^3.2.0:
   version "3.2.0"
@@ -9003,6 +9020,14 @@ vue-loader@^15.9.2:
     loader-utils "^1.1.0"
     vue-hot-reload-api "^2.3.0"
     vue-style-loader "^4.1.0"
+
+vue-monaco@^1.2.2:
+  version "1.2.2"
+  resolved "https://registry.yarnpkg.com/vue-monaco/-/vue-monaco-1.2.2.tgz#5e88bd25bf013a32d8fb051acab7bc186c3753e4"
+  integrity sha512-+BhCHeAuDmjtCUP9MUxan6OjGgOqDR7xHlNScZ8Cfq32iac76Fv7z6RfC+lSrp0YpCjEPl6bvpY21N11UBRmMg==
+  dependencies:
+    monaco-editor "^0.20.0"
+    nano-assign "^1.0.0"
 
 vue-style-loader@^4.1.0, vue-style-loader@^4.1.2:
   version "4.1.3"

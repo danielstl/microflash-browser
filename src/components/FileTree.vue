@@ -2,41 +2,52 @@
   <div id="root" @dragenter="fileDragEnter" @dragover.prevent="fileDragOver" @drop.prevent="fileDrop">
     <header>Your micro:bit files</header>
 
-    <Modal v-if="creatingFile" title="Create file"> <!-- todo refactor into individual components -->
-      <form id="create-file-form">
-        <div class="form-section">
-          <div class="label">File type</div>
-          <input id="radio-file" type="radio" value="file" v-model="createdFileType"/>
-          <label for="radio-file">File</label>
-          <input id="radio-dir" type="radio" value="directory" v-model="createdFileType"/>
-          <label for="radio-dir">Folder</label>
-        </div>
-        <div class="form-section">
-          <div class="label">File name</div>
-          <div v-if="createdFileNameInvalid">
-            File name is invalid
+    <Modal :visible="creatingFile" title="Create file"> <!-- todo refactor into individual components -->
+      <template v-if="creatingFile">
+        <form id="create-file-form">
+          <div class="form-section">
+            <div class="label">File type</div>
+            <div class="file-types">
+              <div class="radio-button">
+                <input id="radio-file" type="radio" value="file" v-model="createdFileType"/>
+                <label for="radio-file">File</label>
+              </div>
+              <div class="radio-button">
+                <input id="radio-dir" type="radio" value="directory" v-model="createdFileType"/>
+                <label for="radio-dir">Folder</label>
+              </div>
+            </div>
           </div>
-          <input type="text" id="file-name" maxlength="16" v-model="createdFileName"/>
-        </div>
-      </form>
+          <div class="form-section">
+            <div class="label">File name</div>
+            <div v-if="createdFileNameInvalid">
+              File name is invalid
+            </div>
+            <input type="text" id="file-name" maxlength="16" autocomplete="off" v-model="createdFileName"/>
+          </div>
+        </form>
+      </template>
       <template v-slot:buttons>
         <button @click="creatingFile = false">Cancel</button>
         <button @click="submitCreatedFile" :disabled="createdFileNameInvalid || createdFileName === ''">OK</button>
       </template>
     </Modal>
 
-    <Modal v-if="editingFile" :title="'Edit ' + editingFile.meta.fileName">
-      <!-- todo refactor into individual components -->
-      <textarea id="edit-file-textbox" v-model="editingFileText"></textarea>
+    <Modal :visible="editingFile" :title="'Edit ' + editingFile?.meta?.fileName">
+      <template v-if="editingFile">
+        <!-- todo refactor into individual components -->
+        <textarea id="edit-file-textbox" v-model="editingFileText"></textarea>
+      </template>
       <template v-slot:buttons>
         <button @click="editingFile = null">Cancel</button>
         <button @click="submitEditedFile">OK</button>
       </template>
     </Modal>
 
-    <div class="dir-entry">
+    <div class="dir-entry" @focus="fileTreeHasFocus = true" @blur="fileTreeHasFocus = false"
+         @keydown.capture.up="navigateUp" @keydown.capture.down="navigateDown">
       <FileActionRow :selected-files="selectedFiles" @new="createFile" @delete="deleteSelectedFiles"
-                     @edit="editSelectedFile" @download="downloadSelectedFiles"/>
+                     @edit="editSelectedFile" @download="downloadSelectedFiles" @search="searchFiles"/>
 
       <FileBreadcrumbs :path="directory.meta.fullyQualifiedFileName" @navigate-to-breadcrumb="navigateToBreadcrumb"/>
 
@@ -44,12 +55,14 @@
         instantly!
       </Tip>
 
-      <DirectoryEntry v-for="entry in directory.validEntries" :entry="entry" :selected="isSelected(entry)"
+      <!--<transition-group name="dirent" :duration="0">-->
+      <DirectoryEntry v-for="entry in directory.validEntries.filter(e => e.fileName.toLowerCase().indexOf(this.search) !== -1)" :entry="entry" :selected="isSelected(entry)"
                       :key="entry.fileName + entry.firstBlock"
                       @file-selected="selectFile(entry)"
                       @file-open="openFile(entry)"
                       @file-preview="previewFile(entry)"
       />
+      <!--</transition-group>-->
 
       <div v-if="directory.validEntries.length === 0" id="empty-directory">
         This folder is empty
@@ -87,7 +100,10 @@ export default {
       createdFileName: "",
       createdFileNameInvalid: false,
       editingFile: null,
-      editingFileText: ""
+      editingFileText: "",
+      fileTreeHasFocus: false,
+      mainSelectFocusIndex: -1,
+      search: ""
     }
   },
   watch: {
@@ -102,6 +118,9 @@ export default {
     }
   },
   methods: {
+    searchFiles(search) {
+      this.search = search.toLowerCase();
+    },
     openFile(entry) {
       let file = entry instanceof File ? entry : entry.readData();
 
@@ -122,6 +141,8 @@ export default {
     previewFile(entry) {
       this.selectedFiles.clear();
       this.selectedFiles.add(entry);
+
+      this.mainSelectFocusIndex = this.directory.validEntries.indexOf(entry);
 
       let file = entry instanceof DirEntry ? entry.readData() : entry;
 
@@ -226,6 +247,22 @@ export default {
         //otherwise it's an error, todo user friendly error
         alert("Error creating file: " + mbFile);
       });
+    },
+    navigateDown() {
+      if (this.mainSelectFocusIndex <= 0) {
+        return;
+      }
+
+      this.previewFile(this.directory.validEntries[--this.mainSelectFocusIndex]);
+    },
+    navigateUp() {
+      console.log("UP");
+      const entries = this.directory.validEntries;
+      if (this.mainSelectFocusIndex >= entries.length) {
+        return;
+      }
+
+      this.previewFile(this.directory.validEntries[++this.mainSelectFocusIndex]);
     }
   }
 }
@@ -238,6 +275,19 @@ export default {
   gap: 0.2em;
   flex: 1;
   padding: 0.3em;
+}
+
+header {
+  font-size: xx-large;
+  font-weight: 600;
+  padding: 0.25em;
+  color: white;
+
+  background-image: linear-gradient(122deg, #00c800 -3%, #3eb6fd 49%);
+
+  box-shadow: rgba(0, 0, 0, 0.25) 0 4px 12px;
+
+  margin-bottom: 0.25em;
 }
 
 #root {
@@ -274,5 +324,38 @@ export default {
 #edit-file-textbox {
   width: 50vw;
   height: 30vh;
+}
+
+.file-types {
+  display: flex;
+  gap: 0.2em;
+}
+
+.radio-button {
+  flex: 1;
+  display: flex;
+  background: white;
+  border: 1px solid #dadada;
+  padding: 0.25em;
+  border-radius: 6px;
+}
+
+.radio-button > label {
+  flex: 1;
+}
+
+.radio-button > input[type=radio] {
+  ---background: orange;
+}
+
+.dirent-enter-active,
+.dirent-leave-active {
+  --transition: all 0.5s ease;
+}
+
+.dirent-enter-from,
+.dirent-leave-to {
+  opacity: 0;
+  --transform: translateX(30px);
 }
 </style>
