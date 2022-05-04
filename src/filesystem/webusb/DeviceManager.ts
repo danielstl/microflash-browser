@@ -3,7 +3,7 @@ import {MemorySpan} from "@/filesystem/utils/MemorySpan";
 import {FlashWritable} from "@/filesystem/core/FlashWritable";
 import {Patch} from "@/filesystem/codalfs/FlashManager";
 
-const UBIT_COMMAND_BUFFER_ADDRESS = 536903884;
+const UBIT_COMMAND_BUFFER_ADDRESS = 536903924;
 const UBIT_COMMAND_BUFFER_SIZE = 256;
 const UBIT_COMMAND_BUFFER_WORDS = UBIT_COMMAND_BUFFER_SIZE / 4;
 const UBIT_COMMAND_PAYLOAD_SIZE = UBIT_COMMAND_BUFFER_SIZE - 1;
