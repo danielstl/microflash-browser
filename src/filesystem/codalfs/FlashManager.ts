@@ -95,7 +95,7 @@ export class FlashManager {
 
         while (!patch.complete) {
             const patchPos = patch.readUint32();
-            const patchLength = patch.readUint16();
+            const patchLength = patch.readUint8();
             // eslint-disable-next-line no-debugger
             debugger;
 
@@ -293,7 +293,7 @@ export class Patch implements FlashWritable {
 
     writeToFlash(flash: MemorySpan): void {
         flash.writeUint32(this.position);
-        flash.writeUint16(this.data.byteLength);
+        flash.writeUint8(this.data.byteLength);
         flash.write(new MemorySpan(this.data));
     }
 }

@@ -4,7 +4,7 @@
     <Modal title="Debug" :visible="visible" id="root-modal">
       <template v-if="visible">
         <HexViewer v-if="false" :data="'test'"/>
-        <div class="inline-warn" v-if="!filesystem">Failed to load filesystem</div>
+        <div class="inline-warn" v-if="!microflash.filesystem">Failed to load filesystem</div>
         <div>Load filesystem from dump</div>
         <input type="file" @change="ev => this.$emit('handle-file-select', ev)">
         <button @click="this.$emit('dump-filesystem')">Dump current filesystem</button>
@@ -12,10 +12,11 @@
         <div>Apply binary patch</div>
         <input type="file" @change="handleDumpRestore">
         <button @click="connectToDAPLink">Connect to DAPLink</button>
+        <button @click="microflash.device.publishPatches(microflash.filesystem.flash.changesAsPatch)">Publish patches (new)</button>
         <div>Block view</div>
-        <div id="block-view" v-if="this.filesystem?.flash">
+        <div id="block-view" v-if="this.microflash.filesystem?.flash">
           <div class="block" v-for="(block, ix) in getBlocks()" @click="displayBlockContent(ix)"
-               :title="ix * this.filesystem.flash.blockSize + ' - ' + (((ix + 1) * this.filesystem.flash.blockSize) - 1)"
+               :title="ix * this.microflash.filesystem.flash.blockSize + ' - ' + (((ix + 1) * this.microflash.filesystem.flash.blockSize) - 1)"
                :key="ix"
                :style="{backgroundColor: block === 65535 ? '#ccc' : block === 61439 ? 'orange' : block === 0 ? 'red' : 'lightblue'}">
             <div class="block-id">{{ ix }}</div>
@@ -31,17 +32,19 @@
 </template>
 
 <script>
+/* eslint-disable */
 import Modal from "@/components/Modal";
 import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
 import {MemorySpan} from "@/filesystem/utils/MemorySpan";
 import {DAPWrapper} from "@/filesystem/webusb/dap-wrapper";
 import HexViewer from "@/components/HexViewer";
+import {Microflash} from "@/filesystem/Microflash";
 
 export default {
   name: "DebugView",
   components: {HexViewer, Modal},
   props: {
-    filesystem: MicroflashFilesystem
+    microflash: Microflash
   },
   data() {
     return {
@@ -50,21 +53,21 @@ export default {
   },
   methods: {
     getBlocks() {
-      if (!this.filesystem) {
+      if (!this.microflash.filesystem) {
         return [];
       }
 
-      let size = (this.filesystem.fileAllocationTable.fileTableSize * this.filesystem.flash.blockSize) / 2;
+      let size = (this.microflash.filesystem.fileAllocationTable.fileTableSize * this.microflash.filesystem.flash.blockSize) / 2;
       let blocks = [];
 
       for (let i = 0; i < size; i++) {
-        blocks.push(this.filesystem.fileAllocationTable.getBlockInfo(i));
+        blocks.push(this.microflash.filesystem.fileAllocationTable.getBlockInfo(i));
       }
 
       return blocks;
     },
     dumpBinaryPatch() {
-      let patch = MemorySpan.fromPatches(this.filesystem.flash.changesAsPatch);
+      let patch = MemorySpan.fromPatches(this.microflash.filesystem.flash.changesAsPatch);
       patch.download("FS_PATCH.dat");
     },
     handleDumpRestore(e) {
@@ -72,7 +75,7 @@ export default {
       let reader = new FileReader();
 
       reader.onload = () => {
-        this.filesystem.flash.applyPatch(new MemorySpan(reader.result));
+        this.microflash.filesystem.flash.applyPatch(new MemorySpan(reader.result));
       }
 
       reader.readAsArrayBuffer(file);
@@ -96,7 +99,7 @@ export default {
             await wrapper.writeBlockAsync(interfaceIndex, buf);
       ///////////////////*/
 
-      const patches = this.filesystem.flash.changesAsPatch.flatMap(patch => patch.split(248));
+      const patches = this.microflash.filesystem.flash.changesAsPatch.flatMap(patch => patch.split(248));
 
 
       /*const patchSizeLimit = 254;
@@ -148,15 +151,31 @@ export default {
 
         const span = MemorySpan.empty(256);
 
-        span.writeUint16(1);
+        span.writeUint8(1);
         patch.writeToFlash(span);
 
+
+        //////////////
+////////
+        ////////      const debugBuf = new Uint8Array(span.data.buffer);
+        ////////      // eslint-disable-next-line no-debugger
+        ////////      debugger;
+        ////////      debugBuf.forEach((val, ix) => console.log("webUsbInterface[" + ix + "] = 0x" + val.toString(16) + ";"));
+////////
+        ////////      // eslint-disable-next-line no-constant-condition
+        ////////      if (true) continue;
+////////
+        ////////      ///////////
         console.log("patch span", span.data.buffer);
 
         const buf = new Uint32Array(span.data.buffer.slice(4));
+
+
         // eslint-disable-next-line no-debugger
-        debugger;
+        ///// debugger;
         await wrapper.writeBlockAsync(interfaceIndex + 4, buf); // write buffer before the actual CMD
+        await wrapper.writeBlockAsync(interfaceIndex + 4, buf); // ehhhhhhhhhhhhhhhhhhhhh
+        await wrapper.writeBlockAsync(interfaceIndex + 4, buf); // ehhhhhhhhhhhhhhhhhhhhh
         // prevent possible race errors??? todo: find a better mutex strat...
 
         const buf2 = new Uint32Array(span.data.buffer.slice(0, 4));
@@ -184,7 +203,7 @@ export default {
       //webusb.flash();
     },
     displayBlockContent(blockIndex) {
-      alert(this.filesystem.flash.getBlock(blockIndex).asUtf8String());
+      alert(this.microflash.filesystem.flash.getBlock(blockIndex).asUtf8String());
     }
   }
 }

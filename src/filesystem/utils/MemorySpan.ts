@@ -182,7 +182,7 @@ export class MemorySpan {
     }
 
     static fromPatches(patches: Patch[]): MemorySpan {
-        const patchedBytes = new MemorySpan(new ArrayBuffer(patches.map(patch => patch.data.byteLength + 6).reduce((curr, prev) => curr + prev, 0)));
+        const patchedBytes = new MemorySpan(new ArrayBuffer(patches.map(patch => patch.data.byteLength + 5).reduce((curr, prev) => curr + prev, 0)));
 
         patches.forEach(patch => {
             patch.writeToFlash(patchedBytes);

@@ -1,9 +1,9 @@
 <template>
   <div id="app">
-    <DebugView :filesystem="filesystem" @handle-file-select="handleFileSelect" @dump-filesystem="dumpFilesystem"/>
+    <DebugView :microflash="microflash" @handle-file-select="handleFileSelect" @dump-filesystem="dumpFilesystem"/>
+    <PatchInfoModal/>
     <Splitpanes vertical="vertical" id="filesystem" class="default-theme">
       <Pane id="navigator-container">
-        <button v-if="false" @click="filesystem.connectToDapLink()">Connect USB</button>
         <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
                   @change-directory="(dir) => this.currentDirectory = dir"
                   @open-file="(file) => this.currentFile = file"/>
@@ -23,12 +23,17 @@ import FilePreview from "@/components/FilePreview";
 import DebugView from "@/components/DebugView";
 import {Splitpanes, Pane} from "splitpanes";
 import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
+import PatchInfoModal from "@/components/PatchInfoModal";
+import {DeviceManager} from "@/filesystem/webusb/DeviceManager";
+import {Microflash} from "@/filesystem/Microflash";
 
 export default {
   name: 'App',
-  components: {DebugView, FilePreview, FileTree, Splitpanes, Pane},
+  components: {PatchInfoModal, DebugView, FilePreview, FileTree, Splitpanes, Pane},
   data() {
     return {
+      /** @type {Microflash | null} */
+      microflash: null,
       /** @type {MicroflashFilesystem | null} */
       filesystem: null,
       /** @type {Array<CodalFile>} */
@@ -46,6 +51,13 @@ export default {
 
       reader.onload = () => {
         this.filesystem = new MicroflashFilesystem(reader.result);
+
+        if (this.microflash) {
+          this.microflash.filesystem = this.filesystem;
+        } else {
+          this.microflash = new Microflash(this.filesystem, new DeviceManager());
+        }
+
         this.currentDirectory = this.filesystem.rootDirectory;
       }
 
@@ -66,16 +78,24 @@ export default {
     }
   },
   mounted() {
+    // this is how we get the filesystem bytes from the simple filesystem browser.
+    // we sit inside an iframe, so we can communicate with the parent through message events
+
+    parent.postMessage("r", "*"); // tell the parent we are ready to receive data
+
     window.addEventListener("message", e => {
       let message = e.data;
 
-      if (!message || message.i !== "fs") {
+      if (!message || message.i !== "fs") { // only listen for filesystem data
         return;
       }
 
-      let buffer = e.data.d;
+      let buffer = message.d;
 
       this.filesystem = new MicroflashFilesystem(buffer);
+
+      this.microflash = new Microflash(this.filesystem, new DeviceManager());
+
       this.currentDirectory = this.filesystem.rootDirectory;
     });
   }
