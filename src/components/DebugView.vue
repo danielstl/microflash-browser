@@ -13,6 +13,7 @@
         <input type="file" @change="handleDumpRestore">
         <button @click="connectToDAPLink">Connect to DAPLink</button>
         <button @click="microflash.device.publishPatches(microflash.filesystem.flash.changesAsPatch)">Publish patches (new)</button>
+        <button @click="microflash.device.debug_promptForWebUSBLocation()">Change WebUSB interface location</button>
         <div>Block view</div>
         <div id="block-view" v-if="this.microflash.filesystem?.flash">
           <div class="block" v-for="(block, ix) in getBlocks()" @click="displayBlockContent(ix)"

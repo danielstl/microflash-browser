@@ -3,7 +3,7 @@ import {MemorySpan} from "@/filesystem/utils/MemorySpan";
 import {FlashWritable} from "@/filesystem/core/FlashWritable";
 import {Patch} from "@/filesystem/codalfs/FlashManager";
 
-const UBIT_COMMAND_BUFFER_ADDRESS = 536903924;
+let UBIT_COMMAND_BUFFER_ADDRESS = 536903924; // todo
 const UBIT_COMMAND_BUFFER_SIZE = 256;
 const UBIT_COMMAND_BUFFER_WORDS = UBIT_COMMAND_BUFFER_SIZE / 4;
 const UBIT_COMMAND_PAYLOAD_SIZE = UBIT_COMMAND_BUFFER_SIZE - 1;
@@ -31,6 +31,14 @@ export class DeviceManager {
 
         await this.dapWrapper.reconnectAsync(); // todo check if already connected?
         this.connected = true;
+    }
+
+    debug_promptForWebUSBLocation() {
+        const res = prompt("WebUSB interface location? (check serial)");
+
+        if (res != null) {
+            UBIT_COMMAND_BUFFER_ADDRESS = parseInt(res);
+        }
     }
 
     promptForDevice(): Promise<USBDevice> {
