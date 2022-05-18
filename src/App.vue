@@ -2,6 +2,7 @@
   <div id="app">
     <DebugView :microflash="microflash" @handle-file-select="handleFileSelect" @dump-filesystem="dumpFilesystem"/>
     <PatchInfoModal/>
+    <SerialView :microflash="microflash"/>
     <Splitpanes vertical="vertical" id="filesystem" class="default-theme">
       <Pane id="navigator-container">
         <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
@@ -26,10 +27,11 @@ import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
 import PatchInfoModal from "@/components/PatchInfoModal";
 import {DeviceManager} from "@/filesystem/webusb/DeviceManager";
 import {Microflash} from "@/filesystem/Microflash";
+import SerialView from "@/components/SerialView";
 
 export default {
   name: 'App',
-  components: {PatchInfoModal, DebugView, FilePreview, FileTree, Splitpanes, Pane},
+  components: {SerialView, PatchInfoModal, DebugView, FilePreview, FileTree, Splitpanes, Pane},
   data() {
     return {
       /** @type {Microflash | null} */
