@@ -3,20 +3,24 @@ import {MemorySpan} from "@/filesystem/utils/MemorySpan";
 import {FlashWritable} from "@/filesystem/core/FlashWritable";
 import {Patch} from "@/filesystem/codalfs/FlashManager";
 
-let UBIT_COMMAND_BUFFER_ADDRESS = 536903924; // todo
 const UBIT_COMMAND_BUFFER_SIZE = 256;
 const UBIT_COMMAND_BUFFER_WORDS = UBIT_COMMAND_BUFFER_SIZE / 4;
 const UBIT_COMMAND_PAYLOAD_SIZE = UBIT_COMMAND_BUFFER_SIZE - 1;
 
-const UBIT_COMMAND_OP_WRITE_PATCH = 1;
+const UBIT_COMMAND_OP_WRITE_PATCH = 0x01;
+const UBIT_COMMAND_OP_REMOUNT = 0x02;
 
-const UBIT_COMMAND_OP_READY = 9;
+const UBIT_COMMAND_OP_RESPONSE_SUCCESS = 0xFF;
 
 export class DeviceManager {
 
     connected: boolean = false;
 
     private dapWrapper: DAPWrapper | null = null;
+
+    constructor(public commandBufferAddress: number) {
+
+    }
 
     async connect() {
         if (this.connected) { // todo reconnect if needed
@@ -37,7 +41,7 @@ export class DeviceManager {
         const res = prompt("WebUSB interface location? (check serial)");
 
         if (res != null) {
-            UBIT_COMMAND_BUFFER_ADDRESS = parseInt(res);
+            this.commandBufferAddress = parseInt(res);
         }
     }
 
@@ -71,27 +75,22 @@ export class DeviceManager {
 
             await readyPromise;
 
-            // todo hack!
-            // writing multiple times seems to increase the likelihood of it working...
-
             // write the command payload
-            this.dapWrapper?.writeBlockAsync(UBIT_COMMAND_BUFFER_ADDRESS + 4, contentBuffer);
-            this.dapWrapper?.writeBlockAsync(UBIT_COMMAND_BUFFER_ADDRESS + 4, contentBuffer);
-            this.dapWrapper?.writeBlockAsync(UBIT_COMMAND_BUFFER_ADDRESS + 4, contentBuffer);
+            this.dapWrapper?.writeBlockAsync(this.commandBufferAddress + 4, contentBuffer);
 
             // ... and then the opcode
-            this.dapWrapper?.writeBlockAsync(UBIT_COMMAND_BUFFER_ADDRESS, opCodeBuffer);
+            this.dapWrapper?.writeBlockAsync(this.commandBufferAddress, opCodeBuffer);
         }
     }
 
-    async publishPatches(patches: Patch[]) {
+    async publishPatches(patches: Patch[], refreshOnComplete = false) {
 
         // command opcode:  1 byte
         // patch position:  4 bytes
         // patch length:    1 byte
         // patch data:      1-250 bytes
 
-        const patchCommands = patches.flatMap(patch => patch.split(250)).map(patch => new WritePatchCommand(patch));
+        const patchCommands = patches.flatMap(patch => patch.split(248)).map(patch => new WritePatchCommand(patch));
 
         DeviceManager.publishPatchEvent(patchCommands.length, 0);
 
@@ -99,7 +98,15 @@ export class DeviceManager {
         for (const patch of patchCommands) { // run separately so we can report our progress
             await this.sendCommands(patch);
 
+            console.log("Published patch @ " + patch.patch.position + ", length: " + patch.patch.data.byteLength)
+
             DeviceManager.publishPatchEvent(patchCommands.length, ++i);
+        }
+
+        await this.remount();
+
+        if (refreshOnComplete) {
+           // parent.postMessage("l", "*"); // tell the parent to reload (we can't do this directly as we're cross-origin)
         }
     }
 
@@ -121,7 +128,7 @@ export class DeviceManager {
     private waitForReady(): Promise<void> {
         return new Promise((resolve, reject) => {
 
-            // poll the memory every 20ms, until the first byte indicates that it is ready
+            // poll the memory every 5ms, until the first byte indicates that it is ready
             const interval = setInterval(async () => {
 
                 if (!this.dapWrapper) {
@@ -129,17 +136,22 @@ export class DeviceManager {
                     return;
                 }
 
-                const res = new DataView((await this.dapWrapper.readBlockAsync(UBIT_COMMAND_BUFFER_ADDRESS, 1)).buffer);
+                const res = new DataView((await this.dapWrapper.readBlockAsync(this.commandBufferAddress, 1)).buffer);
 
-                if (res.getUint8(0) === UBIT_COMMAND_OP_READY) { // ready!
+                if (res.getUint8(0) === UBIT_COMMAND_OP_RESPONSE_SUCCESS) { // ready!
                     console.log("READY!!", res.buffer);
                     clearInterval(interval);
 
                     resolve(undefined);
                 }
 
-            }, 20);
+            }, 5);
         });
+    }
+
+    public async remount() {
+        console.log("Remounting...");
+        await this.sendCommands(new RemountCommand());
     }
 }
 
@@ -164,5 +176,12 @@ export class WritePatchCommand extends MicrobitCommand {
         super.writeToFlash(flash);
 
         this.patch.writeToFlash(flash);
+    }
+}
+
+export class RemountCommand extends MicrobitCommand {
+
+    constructor() {
+        super(UBIT_COMMAND_OP_REMOUNT);
     }
 }

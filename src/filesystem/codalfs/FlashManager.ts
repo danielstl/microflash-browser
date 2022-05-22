@@ -10,10 +10,9 @@ import {FlashWritable} from "@/filesystem/core/FlashWritable";
 export class FlashManager {
 
     flashStart = 0;
-    flashEnd = 0;
-    pageSize = 1024;
-    blockSize = 512;
-    flashSize = 131072;
+    pageSize = this.filesystem.metadata.pageSize;
+    blockSize = this.filesystem.metadata.blockSize;
+    flashSize = this.filesystem.metadata.flashSize;
 
     dataView: DataView;
     originalData: ArrayBuffer

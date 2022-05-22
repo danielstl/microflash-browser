@@ -5,6 +5,7 @@ import {MicroDirectory} from "@/filesystem/codalfs/MicroDirectory";
 import * as Constants from "@/filesystem/utils/Constants";
 import {MicroDirectoryEntry} from "@/filesystem/codalfs/MicroDirectoryEntry";
 import {CODALFS_FILE_SEPARATOR, CODALFS_MAX_FILE_LENGTH} from "@/filesystem/utils/Constants";
+import {FilesystemMetadata} from "@/filesystem/Microflash";
 
 export class MicroflashFilesystem extends Filesystem {
 
@@ -14,7 +15,7 @@ export class MicroflashFilesystem extends Filesystem {
 
     rootDirectory: MicroDirectory;
 
-    constructor(data: ArrayBuffer) {
+    constructor(data: ArrayBuffer, public metadata: FilesystemMetadata) {
         super();
 
         this.flash = new FlashManager(this, data); //todo

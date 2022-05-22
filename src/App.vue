@@ -26,8 +26,9 @@ import {Splitpanes, Pane} from "splitpanes";
 import {MicroflashFilesystem} from "@/filesystem/codalfs/MicroflashFilesystem";
 import PatchInfoModal from "@/components/PatchInfoModal";
 import {DeviceManager} from "@/filesystem/webusb/DeviceManager";
-import {Microflash} from "@/filesystem/Microflash";
+import {FilesystemMetadata, Microflash} from "@/filesystem/Microflash";
 import SerialView from "@/components/SerialView";
+import {MemorySpan} from "@/filesystem/utils/MemorySpan";
 
 export default {
   name: 'App',
@@ -86,17 +87,23 @@ export default {
     parent.postMessage("r", "*"); // tell the parent we are ready to receive data
 
     window.addEventListener("message", e => {
-      let message = e.data;
+      const message = e.data;
 
       if (!message || message.i !== "fs") { // only listen for filesystem data
         return;
       }
 
-      let buffer = message.d;
+      /** @type {ArrayBuffer} */
+      const buffer = message.d;
 
-      this.filesystem = new MicroflashFilesystem(buffer);
+      const metadataBuffer = buffer.slice(0, 96);
+      const fileDataBuffer = buffer.slice(96);
 
-      this.microflash = new Microflash(this.filesystem, new DeviceManager());
+      const metadata = FilesystemMetadata.fromMemorySpan(new MemorySpan(metadataBuffer));
+
+      this.filesystem = new MicroflashFilesystem(fileDataBuffer, metadata);
+
+      this.microflash = new Microflash(this.filesystem, new DeviceManager(metadata.commandBufferAddress));
 
       this.currentDirectory = this.filesystem.rootDirectory;
     });
