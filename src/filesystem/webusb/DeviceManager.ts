@@ -9,6 +9,8 @@ const UBIT_COMMAND_PAYLOAD_SIZE = UBIT_COMMAND_BUFFER_SIZE - 1;
 
 const UBIT_COMMAND_OP_WRITE_PATCH = 0x01;
 const UBIT_COMMAND_OP_REMOUNT = 0x02;
+const UBIT_COMMAND_OP_ERASE_PAGE = 0x03;
+const UBIT_COMMAND_OP_FORMAT = 0x04;
 
 const UBIT_COMMAND_OP_RESPONSE_SUCCESS = 0xFF;
 
@@ -76,21 +78,23 @@ export class DeviceManager {
             await readyPromise;
 
             // write the command payload
-            this.dapWrapper?.writeBlockAsync(this.commandBufferAddress + 4, contentBuffer);
+            await this.dapWrapper?.writeBlockAsync(this.commandBufferAddress + 4, contentBuffer);
 
             // ... and then the opcode
-            this.dapWrapper?.writeBlockAsync(this.commandBufferAddress, opCodeBuffer);
+            await this.dapWrapper?.writeBlockAsync(this.commandBufferAddress, opCodeBuffer);
         }
     }
 
-    async publishPatches(patches: Patch[], refreshOnComplete = false) {
+    async publishPatches(patches: Patch[], pagesToClear: number[], refreshOnComplete = false) {
 
         // command opcode:  1 byte
         // patch position:  4 bytes
         // patch length:    1 byte
         // patch data:      1-250 bytes
 
-        const patchCommands = patches.flatMap(patch => patch.split(248)).map(patch => new WritePatchCommand(patch));
+        const patchCommands: MicrobitCommand[] = pagesToClear.map(page => new ClearPageCommand(page));
+
+        patchCommands.push(...patches.flatMap(patch => patch.split(248)).filter(patch => !new MemorySpan(patch.data).isFilledWith(0xFF)).map(patch => new WritePatchCommand(patch)));
 
         DeviceManager.publishPatchEvent(patchCommands.length, 0);
 
@@ -98,7 +102,11 @@ export class DeviceManager {
         for (const patch of patchCommands) { // run separately so we can report our progress
             await this.sendCommands(patch);
 
-            console.log("Published patch @ " + patch.patch.position + ", length: " + patch.patch.data.byteLength)
+            if (patch instanceof ClearPageCommand) {
+                console.log("Cleared page @ " + patch.address);
+            } else if (patch instanceof WritePatchCommand) {
+                console.log("Published patch @ " + patch.patch.position + ", length: " + patch.patch.data.byteLength + ", data: " + new MemorySpan(patch.patch.data).asString("hex"));
+            }
 
             DeviceManager.publishPatchEvent(patchCommands.length, ++i);
         }
@@ -106,7 +114,9 @@ export class DeviceManager {
         await this.remount();
 
         if (refreshOnComplete) {
-           // parent.postMessage("l", "*"); // tell the parent to reload (we can't do this directly as we're cross-origin)
+            setTimeout(() => {
+                parent.postMessage("l", "*"); // tell the parent to reload (we can't do this directly as we're cross-origin)
+            }, 5000); // todo, we can't reliably guess how long a remount will take...
         }
     }
 
@@ -128,7 +138,7 @@ export class DeviceManager {
     private waitForReady(): Promise<void> {
         return new Promise((resolve, reject) => {
 
-            // poll the memory every 5ms, until the first byte indicates that it is ready
+            // poll the memory every 25ms, until the first byte indicates that it is ready
             const interval = setInterval(async () => {
 
                 if (!this.dapWrapper) {
@@ -145,13 +155,20 @@ export class DeviceManager {
                     resolve(undefined);
                 }
 
-            }, 5);
+            }, 25);
         });
     }
 
     public async remount() {
         console.log("Remounting...");
         await this.sendCommands(new RemountCommand());
+    }
+
+    public async format() {
+        console.log("Formatting the filesystem...");
+
+        await this.sendCommands(new FormatCommand());
+        await this.remount();
     }
 }
 
@@ -183,5 +200,26 @@ export class RemountCommand extends MicrobitCommand {
 
     constructor() {
         super(UBIT_COMMAND_OP_REMOUNT);
+    }
+}
+
+export class ClearPageCommand extends MicrobitCommand {
+
+    constructor(public address: number) {
+        super(UBIT_COMMAND_OP_ERASE_PAGE);
+    }
+
+
+    writeToFlash(flash: MemorySpan) {
+        super.writeToFlash(flash);
+
+        flash.writeUint32(this.address);
+    }
+}
+
+export class FormatCommand extends MicrobitCommand {
+
+    constructor() {
+        super(UBIT_COMMAND_OP_FORMAT);
     }
 }

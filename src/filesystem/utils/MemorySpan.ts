@@ -14,7 +14,7 @@ export class MemorySpan {
     data: DataView;
     readIndex: number = 0;
 
-    constructor(data: DataView | ArrayBuffer | number[]) {
+    constructor(data: DataView | ArrayBuffer | number[], private writeCallback: Function = () => {}) {
         if (data instanceof DataView) {
             this.data = data;
         } else if (data instanceof ArrayBuffer) {
@@ -113,30 +113,36 @@ export class MemorySpan {
 
     writeInt8(value: number) {
         this.data.setInt8(this.skip(1), value);
+        this.writeCallback();
     }
 
     writeInt16(value: number) {
         this.data.setInt16(this.skip(2), value, true);
+        this.writeCallback();
     }
 
     writeInt32(value: number) {
         this.data.setInt32(this.skip(4), value, true);
+        this.writeCallback();
     }
 
     writeUint8(value: number) {
         this.data.setUint8(this.skip(1), value);
+        this.writeCallback();
     }
 
     writeUint16(value: number) {
         this.data.setUint16(this.skip(2), value, true);
+        this.writeCallback();
     }
 
     writeUint32(value: number) {
         this.data.setUint32(this.skip(4), value, true);
+        this.writeCallback();
     }
 
     canRead(bytes: number = 1) : boolean {
-        return (this.readIndex + bytes) <= this.data.buffer.byteLength;
+        return (this.readIndex + bytes) < this.data.byteLength;
     }
 
     skip(bytes: number) {
@@ -158,13 +164,26 @@ export class MemorySpan {
     }
 
     write(span: MemorySpan) {
-        new Uint8Array(this.data.buffer, this.data.byteOffset, this.data.byteLength).set(new Uint8Array(span.data.buffer), this.readIndex);
+        new Uint8Array(this.data.buffer, this.data.byteOffset, this.data.byteLength).set(new Uint8Array(span.data.buffer, span.data.byteOffset, span.data.byteLength), this.readIndex);
 
-        this.skip(span.data.buffer.byteLength);
+        this.skip(span.data.byteLength);
+        this.writeCallback();
     }
 
-    asUtf8String(): string {
-        return Buffer.from(this.data.buffer, this.data.byteOffset, this.data.byteLength).toString("utf-8");
+    asString(encoding: BufferEncoding = "utf-8"): string {
+        return Buffer.from(this.data.buffer, this.data.byteOffset, this.data.byteLength).toString(encoding);
+    }
+
+    isFilledWith(entry: number): boolean {
+        for (let i = 0; i < this.data.byteLength; i++) {
+            if (this.data.getUint8(i) != entry) {
+                // eslint-disable-next-line no-debugger
+                debugger;
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -76,15 +76,12 @@ export class MicroDirectoryEntry extends DirectoryEntry {
 
         const endBlock = prevBlock;
 
-        // eslint-disable-next-line no-debugger
-        debugger;
-
         // mark any old blocks as empty
         // TODO check if this is appropriate?
         while (block != BlockInfoFlag.EndOfFile && block != BlockInfoFlag.Unused) {
             const newBlock = this.filesystem.fileAllocationTable.getBlockInfo(block);
 
-            this.filesystem.fileAllocationTable.setBlockInfo(block, BlockInfoFlag.Unused);
+            this.filesystem.fileAllocationTable.setBlockInfo(block, BlockInfoFlag.Deleted);
 
             if (newBlock == BlockInfoFlag.EndOfFile || newBlock == BlockInfoFlag.Unused) {
                 break;
@@ -95,7 +92,7 @@ export class MicroDirectoryEntry extends DirectoryEntry {
 
         this.filesystem.fileAllocationTable.setBlockInfo(endBlock, BlockInfoFlag.EndOfFile);
 
-        this.length = written;
+        this.length = written; // todo invalidate old dirent/create new
 
         this.writeToFlash(this.filesystem.flash.getBlock(this.containingBlock).atOffset(this.containingBlockOffset)); // write back the length
     }

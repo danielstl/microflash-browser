@@ -2,12 +2,14 @@
   <div id="app">
     <DebugView :microflash="microflash" @handle-file-select="handleFileSelect" @dump-filesystem="dumpFilesystem"/>
     <PatchInfoModal/>
-    <SerialView :microflash="microflash"/>
+    <SerialView v-if="false" :microflash="microflash"/>
     <Splitpanes vertical="vertical" id="filesystem" class="default-theme">
       <Pane id="navigator-container">
         <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
                   @change-directory="(dir) => this.currentDirectory = dir"
-                  @open-file="(file) => this.currentFile = file"/>
+                  @open-file="(file) => this.currentFile = file"
+                  @sync-files="this.microflash.device.publishPatches(this.microflash.filesystem.flash.changesAsPatches, this.microflash.filesystem.flash.forceRewritePages, true)"
+        />
       </Pane>
       <Pane>
         <FilePreview :file="this.currentFile"/>

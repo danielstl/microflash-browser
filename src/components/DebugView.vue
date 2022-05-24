@@ -11,10 +11,12 @@
         <button @click="dumpBinaryPatch">Dump binary patch</button>
         <div>Apply binary patch</div>
         <input type="file" @change="handleDumpRestore">
-        <button @click="connectToDAPLink">Connect to DAPLink</button>
-        <button @click="microflash.device.publishPatches(microflash.filesystem.flash.changesAsPatch, true)">Publish patches (new)</button>
+        <button @click="microflash.device.publishPatches(microflash.filesystem.flash.changesAsPatches, microflash.filesystem.flash.forceRewritePages, true)">Publish patches</button>
         <button @click="microflash.device.debug_promptForWebUSBLocation()">Change WebUSB interface location</button>
         <button @click="microflash.device.remount()">Remount</button>
+        <button @click="microflash.device.format()">Format</button>
+        <div>Metadata</div>
+        <div>Page Size: {{ microflash.filesystem.metadata.pageSize }}, Block Size: {{ microflash.filesystem.metadata.blockSize }}, Flash Size: {{ microflash.filesystem.metadata.flashSize }}, Command Buffer Address: {{ microflash.filesystem.metadata.commandBufferAddress }} / {{ microflash.filesystem.metadata.commandBufferAddress.toString(16) }}</div>
         <div>Block view</div>
         <div id="block-view" v-if="this.microflash.filesystem?.flash">
           <div class="block" v-for="(block, ix) in getBlocks()" @click="displayBlockContent(ix)"
@@ -69,7 +71,7 @@ export default {
       return blocks;
     },
     dumpBinaryPatch() {
-      let patch = MemorySpan.fromPatches(this.microflash.filesystem.flash.changesAsPatch);
+      let patch = MemorySpan.fromPatches(this.microflash.filesystem.flash.changesAsPatches);
       patch.download("FS_PATCH.dat");
     },
     handleDumpRestore(e) {
@@ -101,7 +103,7 @@ export default {
             await wrapper.writeBlockAsync(interfaceIndex, buf);
       ///////////////////*/
 
-      const patches = this.microflash.filesystem.flash.changesAsPatch.flatMap(patch => patch.split(248));
+      const patches = this.microflash.filesystem.flash.changesAsPatches.flatMap(patch => patch.split(248));
 
 
       /*const patchSizeLimit = 254;
@@ -205,7 +207,8 @@ export default {
       //webusb.flash();
     },
     displayBlockContent(blockIndex) {
-      alert(this.microflash.filesystem.flash.getBlock(blockIndex).asUtf8String());
+      const block = this.microflash.filesystem.flash.getBlock(blockIndex);
+      alert(block.asString("hex") + "\n\n" + block.asString("utf-8"));
     }
   }
 }

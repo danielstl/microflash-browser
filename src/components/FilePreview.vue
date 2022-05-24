@@ -3,7 +3,8 @@
     <div id="file-title">{{ file.meta.fileName }}</div>
     <div id="file-contents">
       <MonacoEditor v-if="false" v-model="contents" language="html"/>
-      <textarea readonly v-model="contents"></textarea>
+      <textarea v-if="false" readonly v-model="contents"></textarea>
+      <component :is="previewComponent" v-bind="previewProps"/>
     </div>
   </div>
   <div id="file-preview-empty" v-else>
@@ -16,14 +17,36 @@
 // eslint-disable-next-line no-unused-vars
 import {MemorySpan} from "@/filesystem/utils/MemorySpan.ts";
 import MonacoEditor from "vue-monaco";
+import {File} from "@/filesystem/core/File";
+import TextFilePreview from "@/components/filetypes/TextFilePreview";
+import ImageFilePreview from "@/components/filetypes/ImageFilePreview";
 
 export default {
   name: "FilePreview",
   components: {MonacoEditor},
   props: {
-    file: Object // File
+    file: File
   },
   computed: {
+    previewComponent() {
+      const extSplit = this.file.meta.fileName.split(".");
+      const ext = (extSplit.length === 1 ? "" : extSplit[1]).replaceAll("\0", "");
+
+      switch (ext) {
+        case "img":
+          return ImageFilePreview;
+        case "txt":
+        default:
+          return TextFilePreview;
+      }
+    },
+    previewProps() {
+      return {
+        file: this.file,
+        contents: this.contents,
+        readOnly: true
+      }
+    },
     contents() {
       //console.log("contents call", this.file);
       //return this.file?.meta?.fileName;

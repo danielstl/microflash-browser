@@ -6,6 +6,7 @@ import {MicroDirectoryEntry} from "@/filesystem/codalfs/MicroDirectoryEntry";
 import {MicroDirectory} from "@/filesystem/codalfs/MicroDirectory";
 import {DirectoryEntryFlag} from "@/filesystem/codalfs/DirectoryEntryFlag";
 import {FlashWritable} from "@/filesystem/core/FlashWritable";
+import {CODALFS_MAGIC} from "@/filesystem/utils/Constants";
 
 export class FlashManager {
 
@@ -15,9 +16,21 @@ export class FlashManager {
     flashSize = this.filesystem.metadata.flashSize;
 
     dataView: DataView;
-    originalData: ArrayBuffer
+    originalData: ArrayBuffer;
 
     lastBlockAllocated = 0;
+
+    /**
+     * When we simulate page clearing in the typescript code, we need to tell the micro:bit to do the same
+     * when synchronising. This contains a list of all pages which the patch system will ensure are made
+     * as patches even if the regions don't explicitly differ, and prior to writing, will tell the micro:bit
+     * to do a flash erase of the page.
+     *
+     * Each entry is the flash index of the start of the page.
+     *
+     * In short: these are pages which the micro:bit needs to erase
+     */
+    forceRewritePages: number[] = [];
 
     constructor(public filesystem: MicroflashFilesystem, public data: ArrayBuffer) {
         this.filesystem = filesystem;
@@ -31,7 +44,11 @@ export class FlashManager {
         }
     }
 
-    get changesAsPatch(): Patch[] {
+    private static handleFilesystemChange() {
+        window.dispatchEvent(new CustomEvent("microbit-fs-dirty"));
+    }
+
+    get changesAsPatches(): Patch[] {
         // go through bytes 1 by 1
         const original = new DataView(this.originalData);
 
@@ -53,7 +70,9 @@ export class FlashManager {
             const originalByte = original.getUint8(i);
             const newByte = this.dataView.getUint8(i);
 
-            if (originalByte == newByte) { // unchanged
+            const inPageEraseRegion = this.forceRewritePages.some(pageAddress => i >= pageAddress && i < pageAddress + this.pageSize);
+
+            if (originalByte == newByte && !inPageEraseRegion) { // unchanged
 
                 if (currentPatchStart !== -1) { // end our current patch!
 
@@ -82,7 +101,8 @@ export class FlashManager {
             allPatches.push(new Patch(currentPatchStart, currentPatch.slice(0, currentPatchLength)));
         }
 
-        return allPatches;
+        // clear all empty patches! empty flash is already filled with this :)
+        return allPatches.filter(patch => !new MemorySpan(patch.data).isFilledWith(0xFF));
     }
 
     applyPatch(patch: MemorySpan) {
@@ -95,8 +115,6 @@ export class FlashManager {
         while (!patch.complete) {
             const patchPos = patch.readUint32();
             const patchLength = patch.readUint8();
-            // eslint-disable-next-line no-debugger
-            debugger;
 
             const patchData = new Uint8Array(patch.readArrayBufferSlice(patchLength));
 
@@ -119,13 +137,14 @@ export class FlashManager {
     }
 
     getMemorySpan(source: number, length: number): MemorySpan {
-        return new MemorySpan(new DataView(this.data, source, length));
+        return new MemorySpan(new DataView(this.data, source, length), FlashManager.handleFilesystemChange);
     }
 
     erase(source: number, length: number) {
         const range = new Uint8Array(this.data);
 
         range.fill(BlockInfoFlag.Unused, source, source + length);
+        FlashManager.handleFilesystemChange();
     }
 
     erasePage(page: number) {
@@ -209,8 +228,12 @@ export class FlashManager {
         const scratch = MemorySpan.empty(this.pageSize);
 
         let currentBlockIndex = this.getContainingBlockIndex(page);
+        let scratchWritePos = 0;
 
         console.log(`Recycling page ${page}...`);
+
+        // eslint-disable-next-line no-debugger
+        debugger;
 
         for (let i = 0; i < this.blocksPerPage; i++) {
             let freeBlock = false;
@@ -227,6 +250,10 @@ export class FlashManager {
 
                 const entry = MicroDirectoryEntry.readFromBlock(this.filesystem, null, currentBlockIndex);
                 const dir = MicroDirectory.readFromDirectoryEntry(this.filesystem, entry, true);
+
+                if (entry.fileName == CODALFS_MAGIC) {
+                    entry.writeToFlash(scratch);
+                }
 
                 dir.entries.forEach(entry => {
                     // If the entry is not valid, we don't want to save it!
@@ -262,7 +289,16 @@ export class FlashManager {
 
             // Go to the next block!
             currentBlockIndex++;
+
+            scratchWritePos += this.blockSize;
+            scratch.atOffset(scratchWritePos);
         }
+
+        // Tell the micro:bit to clear this page when we write back to it...
+        this.forceRewritePages.push(page);
+
+        // eslint-disable-next-line no-debugger
+        debugger;
 
         // Write our scratch to the page...
         this.getMemorySpan(page, this.pageSize).write(scratch);
@@ -284,7 +320,7 @@ export class Patch implements FlashWritable {
         }
 
         for (let i = 0; i < this.data.byteLength; i += atSize) {
-            res.push(new Patch(this.position + i, this.data.slice(i, i + atSize - 1)));
+            res.push(new Patch(this.position + i, this.data.slice(i, i + atSize)));
         }
 
         return res;

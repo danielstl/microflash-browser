@@ -33,7 +33,7 @@
       </template>
     </Modal>
 
-    <Modal :visible="editingFile" :title="'Edit ' + editingFile?.meta?.fileName">
+    <Modal :visible="!!editingFile" :title="'Edit ' + editingFile?.meta?.fileName">
       <template v-if="editingFile">
         <!-- todo refactor into individual components -->
         <textarea id="edit-file-textbox" v-model="editingFileText"></textarea>
@@ -67,10 +67,11 @@
       <div v-if="directory.validEntries.length === 0" id="empty-directory">
         This folder is empty
       </div>
-
-      <button v-if="false" @click="createFile(true)">Create new directory</button>
-      <button v-if="false" @click="createFile(false)">Create new file</button>
     </div>
+
+    <footer>
+      <FileSyncFooter @sync-files="$emit('sync-files')"/>
+    </footer>
   </div>
 </template>
 
@@ -84,10 +85,11 @@ import {Directory, File} from "@/filesystem/core/File";
 import {DirectoryEntry as DirEntry} from "@/filesystem/core/DirectoryEntry";
 import Modal from "@/components/Modal";
 import {MemorySpan} from "@/filesystem/utils/MemorySpan";
+import FileSyncFooter from "@/components/FileSyncFooter";
 
 export default {
   name: "FileTree",
-  components: {Modal, Tip, DirectoryEntry, FileActionRow, FileBreadcrumbs},
+  components: {FileSyncFooter, Modal, Tip, DirectoryEntry, FileActionRow, FileBreadcrumbs},
   props: {
     directory: Directory
   },
@@ -292,6 +294,8 @@ header {
 
 #root {
   height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 #empty-directory {
@@ -357,5 +361,9 @@ header {
 .dirent-leave-to {
   opacity: 0;
   --transform: translateX(30px);
+}
+
+footer {
+  float: bottom;
 }
 </style>

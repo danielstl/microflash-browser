@@ -61,8 +61,6 @@ export class MicroDirectory extends Directory {
         entry.writeToFlash(flash);
         fs.fileAllocationTable.setBlockInfo(newBlock, BlockInfoFlag.EndOfFile);
 
-        // eslint-disable-next-line no-debugger
-        debugger;
         return entry.readData();
     }
 
