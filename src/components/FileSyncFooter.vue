@@ -13,6 +13,7 @@ export default {
   methods: {
     syncFiles() {
       this.$emit("sync-files");
+      this.visible = false;
     }
   },
   data() {

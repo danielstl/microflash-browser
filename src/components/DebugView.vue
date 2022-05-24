@@ -11,7 +11,7 @@
         <button @click="dumpBinaryPatch">Dump binary patch</button>
         <div>Apply binary patch</div>
         <input type="file" @change="handleDumpRestore">
-        <button @click="microflash.device.publishPatches(microflash.filesystem.flash.changesAsPatches, microflash.filesystem.flash.forceRewritePages, true)">Publish patches</button>
+        <button @click="microflash.device.publishPatches(microflash.filesystem.flash.changesAsPatches, microflash.filesystem.flash.pagesToClear, true)">Publish patches</button>
         <button @click="microflash.device.debug_promptForWebUSBLocation()">Change WebUSB interface location</button>
         <button @click="microflash.device.remount()">Remount</button>
         <button @click="microflash.device.format()">Format</button>

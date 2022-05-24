@@ -20,18 +20,6 @@ export class FlashManager {
 
     lastBlockAllocated = 0;
 
-    /**
-     * When we simulate page clearing in the typescript code, we need to tell the micro:bit to do the same
-     * when synchronising. This contains a list of all pages which the patch system will ensure are made
-     * as patches even if the regions don't explicitly differ, and prior to writing, will tell the micro:bit
-     * to do a flash erase of the page.
-     *
-     * Each entry is the flash index of the start of the page.
-     *
-     * In short: these are pages which the micro:bit needs to erase
-     */
-    forceRewritePages: number[] = [];
-
     constructor(public filesystem: MicroflashFilesystem, public data: ArrayBuffer) {
         this.filesystem = filesystem;
         this.dataView = new DataView(this.data);
@@ -66,11 +54,13 @@ export class FlashManager {
         let currentPatch = new ArrayBuffer(original.byteLength);
         let currentPatchLength = 0;
 
+        const clearPages = this.pagesToClear;
+
         for (let i = 0; i < this.originalData.byteLength; i++) {
             const originalByte = original.getUint8(i);
             const newByte = this.dataView.getUint8(i);
 
-            const inPageEraseRegion = this.forceRewritePages.some(pageAddress => i >= pageAddress && i < pageAddress + this.pageSize);
+            const inPageEraseRegion = clearPages.some(pageAddress => i >= pageAddress && i < pageAddress + this.pageSize);
 
             if (originalByte == newByte && !inPageEraseRegion) { // unchanged
 
@@ -216,6 +206,34 @@ export class FlashManager {
         return block;
     }
 
+    get pagesToClear(): number[] {
+        // Go through flash, find any with regions whereby a flash clear will be needed
+        // due to how the flash memory works
+
+        const original = new DataView(this.originalData);
+        const pages: number[] = [];
+
+        for (let i = 0; i < this.originalData.byteLength; i++) {
+            const originalByte = original.getUint8(i);
+            const newByte = this.dataView.getUint8(i);
+
+            // Check if these changes would require a flash clear to be valid
+            if ((originalByte ^ newByte) & newByte) {
+                const pageAddress = this.getContainingPage(i) * this.pageSize;
+
+                pages.push(pageAddress);
+
+                i = pageAddress + this.pageSize; // jump to the next page
+            }
+        }
+
+        return pages;
+    }
+
+    getContainingPage(address: number): number {
+        return Math.floor((address - this.flashStart) / this.pageSize);
+    }
+
     getContainingBlockIndex(address: number): number {
         return Math.floor((address - this.flashStart) / this.blockSize);
     }
@@ -231,9 +249,6 @@ export class FlashManager {
         let scratchWritePos = 0;
 
         console.log(`Recycling page ${page}...`);
-
-        // eslint-disable-next-line no-debugger
-        debugger;
 
         for (let i = 0; i < this.blocksPerPage; i++) {
             let freeBlock = false;
@@ -257,7 +272,7 @@ export class FlashManager {
 
                 dir.entries.forEach(entry => {
                     // If the entry is not valid, we don't want to save it!
-                    if (!(entry as MicroDirectoryEntry).hasFlags(DirectoryEntryFlag.Valid)) {
+                    if ((entry as MicroDirectoryEntry).hasFlags(DirectoryEntryFlag.New)) {
                         return;
                     }
 
@@ -295,7 +310,7 @@ export class FlashManager {
         }
 
         // Tell the micro:bit to clear this page when we write back to it...
-        this.forceRewritePages.push(page);
+       // this.forceRewritePages.push(page);
 
         // eslint-disable-next-line no-debugger
         debugger;

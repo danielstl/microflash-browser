@@ -8,7 +8,7 @@
         <FileTree v-if="this.currentDirectory" :directory="this.currentDirectory"
                   @change-directory="(dir) => this.currentDirectory = dir"
                   @open-file="(file) => this.currentFile = file"
-                  @sync-files="this.microflash.device.publishPatches(this.microflash.filesystem.flash.changesAsPatches, this.microflash.filesystem.flash.forceRewritePages, true)"
+                  @sync-files="this.microflash.device.publishPatches(this.microflash.filesystem.flash.changesAsPatches, this.microflash.filesystem.flash.pagesToClear, true)"
         />
       </Pane>
       <Pane>
