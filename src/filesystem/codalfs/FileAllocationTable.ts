@@ -13,7 +13,6 @@ import {BlockInfoFlag} from "@/filesystem/codalfs/BlockInfoFlag";
  */
 export class FileAllocationTable {
 
-    table: Array<number>; // BlockType
     fileTableSize: number;
 
     constructor(public filesystem: MicroflashFilesystem, fileSystemSize: number, blockSize: number) {
@@ -24,8 +23,6 @@ export class FileAllocationTable {
         if ((fileSystemSize * 2) % blockSize) {
             this.fileTableSize++;
         }
-
-        this.table = []; //todo
     }
 
     getBlockInfo(blockIndex: number): number {

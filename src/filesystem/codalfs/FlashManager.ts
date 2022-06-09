@@ -116,12 +116,6 @@ export class FlashManager {
         return Math.floor(this.pageSize / this.blockSize);
     }
 
-    readString(source: number, length: number): string {
-        const slice = new Int8Array(this.data, source, length);
-
-        return Buffer.from(slice).toString("utf-8");
-    }
-
     getBlock(blockIndex: number): MemorySpan {
         return this.getMemorySpan(this.flashStart + blockIndex * this.blockSize, this.blockSize);
     }

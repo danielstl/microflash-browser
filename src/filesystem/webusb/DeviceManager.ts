@@ -92,6 +92,8 @@ export class DeviceManager {
         // patch length:    1 byte
         // patch data:      1-250 bytes
 
+        window.performance.mark("startFlash");
+
         const patchCommands: MicrobitCommand[] = pagesToClear.map(page => new ClearPageCommand(page));
 
         patchCommands.push(...patches.flatMap(patch => patch.split(248)).filter(patch => !new MemorySpan(patch.data).isFilledWith(0xFF)).map(patch => new WritePatchCommand(patch)));
@@ -110,6 +112,10 @@ export class DeviceManager {
 
             DeviceManager.publishPatchEvent(patchCommands.length, ++i);
         }
+
+        window.performance.mark("endFlash");
+        window.performance.measure("flashSpeed","startFlash", "endFlash");
+        console.log(JSON.stringify(window.performance.getEntriesByName("flashSpeed")));
 
         await this.remount();
 
